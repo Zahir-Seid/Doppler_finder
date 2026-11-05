@@ -15,7 +15,9 @@
       "velocity_m_per_s": 90.0,
       "closest_approach_m": 800.0,
       "offset_s": 30.0,
-      "altitude_m": 600.0
+      "altitude_m": 600.0,
+      "fundamental_hz": 100.0,
+      "harmonics": [1.0, 0.6, 0.3]
     }
   ]
 }

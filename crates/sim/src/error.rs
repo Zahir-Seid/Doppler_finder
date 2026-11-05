@@ -22,7 +22,25 @@ pub enum SimError {
         /// Zero-based index of the offending pass.
         index: usize,
     },
+    /// One aircraft pass had no usable harmonic comb.
+    #[error("aircraft pass {index} has an empty, negative or silent harmonic comb")]
+    InvalidHarmonics {
+        /// Zero-based index of the offending pass.
+        index: usize,
+    },
+    /// One aircraft pass flew at or below the observer's ear height.
+    #[error("aircraft pass {index} does not pass above the observer")]
+    PassBelowObserver {
+        /// Zero-based index of the offending pass.
+        index: usize,
+    },
+    /// The requested peak amplitude was outside `(0, 1]`.
+    #[error("peak amplitude {0} is outside (0, 1]")]
+    InvalidAmplitude(f64),
     /// A sample rate or duration was non-finite.
     #[error("value must be finite")]
     NotFinite,
+    /// The acoustics model rejected the geometry or the atmosphere.
+    #[error("acoustics: {0}")]
+    Acoustics(#[from] acoustics::AcousticsError),
 }

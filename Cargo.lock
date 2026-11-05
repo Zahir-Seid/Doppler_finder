@@ -768,6 +768,7 @@ dependencies = [
  "core-types",
  "geodesy",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
