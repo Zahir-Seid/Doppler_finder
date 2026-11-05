@@ -15,6 +15,11 @@ fn default_harmonics() -> Vec<f64> {
     vec![1.0]
 }
 
+/// Track direction assumed when a scenario omits it: due east, degrees.
+fn default_heading_deg() -> f64 {
+    90.0
+}
+
 /// The listener position and ear height.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Observer {
@@ -43,6 +48,16 @@ pub struct AircraftPass {
     pub offset_s: f64,
     /// Geometric altitude in metres.
     pub altitude_m: f64,
+    /// Track direction in degrees clockwise from north.
+    ///
+    /// The synthesized audio does not depend on the heading, because a
+    /// straight level pass is rotationally symmetric about the observer. The
+    /// degraded ADS-B feed of FR-SIM-02 and the position bound of FR-SIM-03 do
+    /// need a direction, so the scenario states it.
+    ///
+    /// Defaults to 90° (eastbound) when a scenario omits it.
+    #[serde(default = "default_heading_deg")]
+    pub heading_deg: f64,
     /// Emitted fundamental frequency of the propeller tone in hertz.
     ///
     /// Defaults to 100 Hz when a scenario omits it.
@@ -97,6 +112,7 @@ impl Scenario {
                 || !pass.closest_approach_m.is_finite()
                 || !pass.offset_s.is_finite()
                 || !pass.altitude_m.is_finite()
+                || !pass.heading_deg.is_finite()
                 || pass.velocity_m_per_s <= 0.0
                 || pass.closest_approach_m < 0.0
                 || !pass.fundamental_hz.is_finite()
@@ -133,6 +149,7 @@ mod tests {
             closest_approach_m: 800.0,
             offset_s: 30.0,
             altitude_m: 600.0,
+            heading_deg: 90.0,
             fundamental_hz: 100.0,
             harmonics: vec![1.0, 0.5],
         }
@@ -172,6 +189,7 @@ mod tests {
         let pass = parsed.passes.first().expect("one pass");
         assert!((pass.fundamental_hz - 100.0).abs() < 1e-12);
         assert_eq!(pass.harmonics, vec![1.0]);
+        assert!((pass.heading_deg - 90.0).abs() < 1e-12);
     }
 
     #[test]

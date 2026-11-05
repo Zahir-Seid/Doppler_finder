@@ -50,6 +50,20 @@ pub enum SimError {
     /// A Fisher information matrix was singular, so no bound exists.
     #[error("Fisher information matrix is singular")]
     SingularFisher,
+    /// One field of an injected-error profile was impossible.
+    #[error("error profile field {field} = {value} is not allowed")]
+    InvalidProfile {
+        /// Name of the offending field.
+        field: &'static str,
+        /// The rejected value.
+        value: f64,
+    },
+    /// A feed held fewer than two points for the requested callsign.
+    #[error("feed has too few points for the requested callsign")]
+    EmptyFeed,
+    /// The scenario has no pass with the requested callsign.
+    #[error("scenario has no pass for callsign {0}")]
+    UnknownCallsign(String),
     /// A sample rate, duration or window was non-finite or empty.
     #[error("value must be finite")]
     NotFinite,
