@@ -8,5 +8,5 @@ pub mod doppler;
 pub mod error;
 
 pub use atmosphere::Atmosphere;
-pub use doppler::{SPEED_OF_LIGHT_M_PER_S, StraightPass, observed_frequency_hz};
+pub use doppler::{StraightPass, observed_frequency_hz};
 pub use error::AcousticsError;
