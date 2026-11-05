@@ -1,0 +1,21 @@
+{
+  "name": "example-single-pass",
+  "seed": 1,
+  "duration_s": 60.0,
+  "observer": {
+    "position": {
+      "lat_deg": 52.0,
+      "lon_deg": 13.0
+    },
+    "ear_height_m": 1.7
+  },
+  "passes": [
+    {
+      "callsign": "TEST123",
+      "velocity_m_per_s": 90.0,
+      "closest_approach_m": 800.0,
+      "offset_s": 30.0,
+      "altitude_m": 600.0
+    }
+  ]
+}

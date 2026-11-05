@@ -1,0 +1,82 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/core-types",
+    "crates/geodesy",
+    "crates/acoustics",
+    "crates/dsp",
+    "crates/events",
+    "crates/adsb",
+    "crates/search",
+    "crates/sim",
+    "crates/pipeline",
+    "crates/store",
+    "crates/runtime",
+    "crates/api",
+    "crates/worker",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1"
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+
+# Internal crates, in dependency order. See docs/SDD.md section 3.
+core-types = { path = "crates/core-types" }
+geodesy = { path = "crates/geodesy" }
+acoustics = { path = "crates/acoustics" }
+dsp = { path = "crates/dsp" }
+events = { path = "crates/events" }
+adsb = { path = "crates/adsb" }
+search = { path = "crates/search" }
+sim = { path = "crates/sim" }
+pipeline = { path = "crates/pipeline" }
+store = { path = "crates/store" }
+runtime = { path = "crates/runtime" }
+api = { path = "crates/api" }
+worker = { path = "crates/worker" }
+cli = { path = "crates/cli" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+disallowed_methods = "deny"
+# Allow-list: deliberate, see docs/rust-working-norms.md section 3.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+doc_markdown = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+similar_names = "allow"
+missing_const_for_fn = "allow"
+needless_pass_by_value = "allow"

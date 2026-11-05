@@ -1,0 +1,22 @@
+# Default configuration. Provisional values from SDD section 11.3.
+# The loader and environment overrides arrive with the API task.
+
+[service]
+bind = "0.0.0.0:8080"
+max_upload_bytes = 26214400
+max_service_clip_s = 90
+max_research_clip_s = 600
+jobs_per_ip_per_day = 10
+jobs_per_session = 10
+
+[retention]
+media_s = 3600
+results_s = 86400
+job_rows_s = 2592000
+rate_limit_s = 172800
+logs_s = 1209600
+
+[pipeline]
+public_cell_m = 2000
+service_wall_time_s = 120
+research_wall_time_s = 300
