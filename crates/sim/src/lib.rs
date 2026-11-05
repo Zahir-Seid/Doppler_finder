@@ -20,7 +20,10 @@ pub mod scenario;
 pub mod synth;
 
 pub use absorption::AirAbsorption;
-pub use crlb::CrlbReport;
+pub use crlb::{
+    CrlbReport, EventBound, EventModel, EventTrack, ObservationWindow, event_bound, position_bound,
+    tone_frequency_sigma_hz,
+};
 pub use error::SimError;
 pub use export::{Truth, TruthEvent, truth, write_truth, write_wav};
 pub use inject::{
