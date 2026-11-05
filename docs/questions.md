@@ -85,6 +85,19 @@ holds implementation-level questions and cross-document risks.
   NFR-02 budget of 300 s for a typical 10-minute clip. Encoded in
   `pipeline::RunMode`.
 
+## Q-10: Wind sign and path averaging
+
+- **Status:** Open until the weather source is chosen (v1).
+- **Context:** SDD section 4 says wind enters as the component along the
+  propagation path, averaged along the path from public weather data, but it
+  fixes neither the sign nor how the average is formed.
+- **Default:** `Atmosphere::effective_speed_m_per_s` takes one component,
+  positive when the wind blows from the source towards the observer, so it
+  shortens the propagation time. Path averaging waits for the weather source;
+  the simulator injects the component directly.
+- **Resolution:** Fix the sign in the weather adapter's documentation and
+  validate the averaging against the simulator's wind scenario (SDD 7).
+
 ## Q-9: Licence
 
 - **Status:** Resolved.
