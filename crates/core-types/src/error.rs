@@ -13,4 +13,7 @@ pub enum CoreError {
     /// A value was NaN or infinite where a finite number is required.
     #[error("value must be finite")]
     NotFinite,
+    /// A variance was zero or negative where a positive value is required.
+    #[error("variance {0} must be positive")]
+    NonPositiveVariance(f64),
 }

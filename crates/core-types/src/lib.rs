@@ -15,7 +15,7 @@ pub use clock::{Clock, SystemClock};
 pub use ctx::{Cancel, CancelReason, JobCtx};
 pub use error::CoreError;
 pub use ids::{EventId, JobId, RecordingId};
-pub use time::{AudioSeconds, UtcMillis};
+pub use time::{AudioSeconds, RecordingStart, UtcMillis};
 pub use units::{
     Hertz, LatLon, LatitudeDegrees, LongitudeDegrees, Metres, MetresPerSecond, Radians, Seconds,
 };
