@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-05
-- **Last recorded commit:** `ea12287` (`develop`)
+- **Last recorded commit:** `5292f9f` (`develop`)
 - **Current milestone:** M2 (DSP front end) in progress
 - **Release under construction:** v0 research core
 
@@ -237,6 +237,7 @@ per-sample/per-bin loops.
   Tests: `frontend::tests::*` in `crates/dsp`, covering 44.1 kHz and 48 kHz
   passband tones, stopband attenuation, aliasing probes, high-pass rejection of
   sub-audio tones, DC removal, determinism and rejected configurations.
+  Commit `5292f9f`.
 - **DSP-03** `[ ]` Real STFT (FR-DM-01).
   Kaiser-windowed, 75% overlap, frame geometry from `StftConfig`, zero-padding,
   parabolic peak interpolation for sub-bin frequency. Add `realfft`.
