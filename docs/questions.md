@@ -98,6 +98,47 @@ holds implementation-level questions and cross-document risks.
 - **Resolution:** Fix the sign in the weather adapter's documentation and
   validate the averaging against the simulator's wind scenario (SDD 7).
 
+## Q-11: Noise colour and SNR convention
+
+- **Status:** Open until G2.
+- **Context:** SDD section 7 asks for noise at a target SNR with a stated
+  colour, but fixes neither the SNR definition nor the colour's slope.
+- **Default:** `NoiseConfig::snr_db` is peak-to-RMS: the noise RMS is the
+  clean peak divided by `10^(snr/20)`, measured after every pass is mixed and
+  before noise is added. `NoiseColour::Pink` is three one-pole low-pass
+  sections at 60, 150 and 400 Hz, summed and rescaled, which tilts energy low
+  without claiming a 1/f slope.
+- **Resolution:** Measure the noise floor and spectrum of the real archives,
+  then either keep the convention or restate it in `sim`'s documentation and
+  regenerate the golden digest.
+
+## Q-12: Air-absorption coefficients
+
+- **Status:** Open until G2.
+- **Context:** SDD section 7 asks for "a simple absorption term" without a
+  model or coefficients, and absorption at 100–300 Hz over a few kilometres is
+  small compared with spreading.
+- **Default:** `AirAbsorption::new(db_per_km_at_1_khz)` scales the coefficient
+  by `(f / 1 kHz)^1.5` and applies it per harmonic over the slant range. The
+  default is `AirAbsorption::none()`, so synthesis stays lossless until a
+  measured coefficient exists.
+- **Resolution:** Fit the shape and the coefficient to ISO 9613-1 at the
+  measured temperature and humidity, then re-derive the golden digest and say
+  in the error budget whether absorption matters at all.
+
+## Q-13: Error-budget ranking needs the estimators
+
+- **Status:** Open until `events` and `search` exist.
+- **Context:** FR-SIM-02 asks for a ranked sensitivity report, and G2 asks
+  which source limits position accuracy. `inject::sensitivity` ranks the
+  sources by how far each moves the closest distance, the heard time and the
+  speed of the track, which is input error, not position error.
+- **Default:** Ship the feed and the input-error ranking now; mark FR-SIM-02
+  partial and do not quote its ranking as the G2 error budget.
+- **Resolution:** Rerun the one-at-a-time and combined profiles through the
+  real estimators, decompose the position variance across the combined draws,
+  and replace the ranking with that decomposition.
+
 ## Q-9: Licence
 
 - **Status:** Resolved.

@@ -4,9 +4,13 @@
 //! the project and must never depend on `events` or `search` (SDD section 3),
 //! so a test can never share a bug with the code it tests.
 //!
-//! SDD section 7 fixes the outputs of one scenario and one seed: a WAV file, a
-//! truth file and a degraded ADS-B feed, plus the Cramér–Rao bound that says
-//! what any estimator could achieve on that audio.
+//! SDD section 7 fixes the outputs of one scenario and one seed: a WAV file
+//! ([`write_wav`]), a truth file ([`truth`], [`write_truth`]) and a degraded
+//! ADS-B feed ([`degraded_feed`]), plus the Cramér–Rao bound ([`event_bound`],
+//! [`position_bound`]) that says what any estimator could achieve on that
+//! audio. The audio is the emission-time tone of SDD section 4 with optional
+//! air absorption and seeded noise; nothing here depends on `events` or
+//! `search`, so a score cannot be flattered by the code it tests.
 
 mod absorption;
 mod rng;

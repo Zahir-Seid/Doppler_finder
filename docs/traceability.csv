@@ -21,10 +21,10 @@ FR-OUT-01,M,v1,6.5;10.4,pipeline;search,T-OUT-01,not_started,planned
 FR-OUT-02,M,v1,10.4,pipeline,T-OUT-02,not_started,planned
 FR-OUT-03,M,v1,6.6,pipeline,T-OUT-03,not_started,planned
 FR-OUT-04,M,v0,9.4,pipeline;cli,T-OUT-04,partial,partial
-FR-SIM-01,M,v0,7,sim,T-SIM-01,partial,partial
-FR-SIM-02,M,v0,7,sim,T-SIM-02,not_started,planned
-FR-SIM-03,S,v0,7,sim,T-SIM-03,not_started,planned
-FR-SIM-04,M,v0,13,sim,T-SIM-04,not_started,planned
+FR-SIM-01,M,v0,7,sim,T-SIM-01,done,passing
+FR-SIM-02,M,v0,7,sim,T-SIM-02,partial,partial
+FR-SIM-03,S,v0,7,sim,T-SIM-03,done,passing
+FR-SIM-04,M,v0,13,sim,T-SIM-04,partial,passing
 FR-AC-01,M,v1,10.2,api;store,T-AC-01,not_started,planned
 FR-AC-02,M,v1,11.3,api;store,T-AC-02,not_started,planned
 FR-AC-03,S,v1,10.2,api,T-AC-03,not_started,planned
