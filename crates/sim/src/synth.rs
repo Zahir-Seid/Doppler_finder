@@ -7,14 +7,19 @@
 //! equation, so a fit can be compared with a known truth rather than with
 //! another copy of the same mistake.
 //!
-//! Absorption, ground reflection, coloured noise, the truth file and the
-//! degraded ADS-B feed arrive with their own tests. Recordings are mono and
-//! start at the recording zero, which is the audio clock `t_a`.
+//! Absorption of the propagating tone is configurable (see
+//! [`AirAbsorption`](crate::AirAbsorption)) and ambient noise is added after
+//! every pass is mixed, at the level and colour the configuration states. The
+//! optional ground reflection is deferred to v3 as SDD section 7 allows.
+//! Recordings are mono and start at the recording zero, which is the audio
+//! clock `t_a`.
 
 use acoustics::{Atmosphere, StraightPass, observed_frequency_hz};
 use core_types::Hertz;
 
+use crate::absorption::AirAbsorption;
 use crate::error::SimError;
+use crate::noise::{NoiseConfig, add_noise};
 use crate::scenario::{AircraftPass, Scenario};
 
 /// Sample rate, duration and level for synthesized audio.
@@ -29,6 +34,11 @@ pub struct SynthesisConfig {
     /// Spherical spreading only ever reduces a pass below this value, and
     /// several passes add, so the buffer can exceed it when they overlap.
     pub amplitude: f64,
+    /// Air absorption over the propagation path; [`AirAbsorption::none`]
+    /// leaves the tone untouched.
+    pub absorption: AirAbsorption,
+    /// Ambient noise to add after mixing, or `None` for clean audio.
+    pub noise: Option<NoiseConfig>,
 }
 
 impl SynthesisConfig {
@@ -55,6 +65,9 @@ impl SynthesisConfig {
         self.sample_count()?;
         if !self.amplitude.is_finite() || self.amplitude <= 0.0 || self.amplitude > 1.0 {
             return Err(SimError::InvalidAmplitude(self.amplitude));
+        }
+        if let Some(noise) = &self.noise {
+            noise.validate()?;
         }
         Ok(())
     }
@@ -105,6 +118,9 @@ impl Samples {
 /// slant range at closest approach, and their phases are accumulated in
 /// reception time, which keeps the tone continuous through the chirp.
 ///
+/// Noise is added last, from [`Scenario::seed`](crate::Scenario), so the
+/// pass-to-noise ratio does not depend on how many passes the scenario holds.
+///
 /// Returns [`SimError`] for an invalid scenario or configuration, for a pass
 /// that does not clear the observer's ear height, and for geometry the
 /// acoustics model rejects (a source at or above the speed of sound).
@@ -125,7 +141,20 @@ pub fn synthesize(
             scenario.observer.ear_height_m,
             sound_speed_m_per_s,
         )?;
-        voice.mix_into(&mut accumulator, config.sample_rate_hz, config.amplitude)?;
+        voice.mix_into(
+            &mut accumulator,
+            config.sample_rate_hz,
+            config.amplitude,
+            config.absorption,
+        )?;
+    }
+    if let Some(noise) = &config.noise {
+        add_noise(
+            &mut accumulator,
+            noise,
+            config.sample_rate_hz,
+            scenario.seed,
+        )?;
     }
 
     Ok(Samples {
@@ -181,6 +210,7 @@ impl Voice {
         accumulator: &mut [f64],
         sample_rate_hz: f64,
         amplitude: f64,
+        absorption: AirAbsorption,
     ) -> Result<(), SimError> {
         let step_s = 1.0 / sample_rate_hz;
         let mut phases = vec![0.0_f64; self.weights.len()];
@@ -209,8 +239,10 @@ impl Voice {
             for (harmonic, (phase, weight)) in
                 phases.iter_mut().zip(self.weights.iter()).enumerate()
             {
-                *phase += core::f64::consts::TAU * fundamental.0 * (harmonic as f64 + 1.0) * step_s;
-                value += weight * phase.sin();
+                let harmonic_number = harmonic as f64 + 1.0;
+                let frequency_hz = fundamental.0 * harmonic_number;
+                *phase += core::f64::consts::TAU * frequency_hz * step_s;
+                value += weight * absorption.factor(frequency_hz, range_m) * phase.sin();
             }
             *sample += amplitude * gain * value;
         }
@@ -242,6 +274,7 @@ mod tests {
             closest_approach_m: 800.0,
             offset_s: 30.0,
             altitude_m: 600.0,
+            heading_deg: 90.0,
             fundamental_hz: 100.0,
             harmonics: vec![1.0],
         }
@@ -265,6 +298,8 @@ mod tests {
             sample_rate_hz: 8_000.0,
             duration_s: 60.0,
             amplitude: 0.5,
+            absorption: AirAbsorption::none(),
+            noise: None,
         }
     }
 
@@ -473,5 +508,70 @@ mod tests {
             synthesize(&scenario(vec![pass()]), &loud, &atmosphere),
             Err(SimError::InvalidAmplitude(_))
         ));
+
+        let mut hiss = config();
+        hiss.noise = Some(NoiseConfig::white(f64::INFINITY));
+        assert!(matches!(
+            synthesize(&scenario(vec![pass()]), &hiss, &atmosphere),
+            Err(SimError::InvalidNoise(_))
+        ));
+    }
+
+    #[test]
+    fn absorption_quietens_the_far_part_of_the_pass() {
+        // A deliberately large coefficient makes the wiring visible: at 60
+        // dB/km and 100 Hz the closest approach loses about 1.9 dB, while the
+        // 3 km edges of the pass lose several times that.
+        let atmosphere = Atmosphere::standard();
+        let clean = synthesize(&scenario(vec![pass()]), &config(), &atmosphere).expect("valid");
+        let mut absorbed_config = config();
+        absorbed_config.absorption = AirAbsorption::new(60.0).expect("valid coefficient");
+        let absorbed =
+            synthesize(&scenario(vec![pass()]), &absorbed_config, &atmosphere).expect("valid");
+
+        assert!(
+            absorbed.peak_amplitude() < 0.97 * clean.peak_amplitude(),
+            "absorption must lower the peak: {} vs {}",
+            absorbed.peak_amplitude(),
+            clean.peak_amplitude()
+        );
+        let padding = |samples: &Samples| -> f64 {
+            let window = window(samples, 55.0, 0.5);
+            (window
+                .iter()
+                .map(|value| f64::from(*value).powi(2))
+                .sum::<f64>()
+                / window.len() as f64)
+                .sqrt()
+        };
+        // The receding tail is the longest path, so absorption changes it most.
+        assert!(padding(&absorbed) < 0.98 * padding(&clean));
+    }
+
+    #[test]
+    fn noise_is_added_at_the_requested_level() {
+        let atmosphere = Atmosphere::standard();
+        let clean = synthesize(&scenario(vec![pass()]), &config(), &atmosphere).expect("valid");
+        let mut noisy_config = config();
+        noisy_config.noise = Some(NoiseConfig::white(20.0));
+        let noisy = synthesize(&scenario(vec![pass()]), &noisy_config, &atmosphere).expect("valid");
+        let again = synthesize(&scenario(vec![pass()]), &noisy_config, &atmosphere).expect("valid");
+        assert_eq!(noisy, again, "the scenario seed must fix the noise");
+
+        let residuals: Vec<f64> = noisy
+            .values()
+            .iter()
+            .zip(clean.values().iter())
+            .map(|(loud, quiet)| f64::from(*loud) - f64::from(*quiet))
+            .collect();
+        let rms = (residuals.iter().map(|value| value * value).sum::<f64>()
+            / residuals.len() as f64)
+            .sqrt();
+        // The peak of the clean mix is near the requested 0.5 and 20 dB is a
+        // factor of ten, so the noise sits near 0.05 RMS.
+        assert!(
+            (rms - 0.05).abs() < 0.01,
+            "expected about 0.05 RMS of noise, got {rms}"
+        );
     }
 }

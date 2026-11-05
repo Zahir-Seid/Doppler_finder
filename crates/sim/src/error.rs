@@ -1,6 +1,7 @@
-//! Simulator validation failures.
+//! Simulator validation and output failures.
 
-/// A failure in a scenario or synthesis configuration.
+/// A failure in a scenario, a synthesis configuration, an injected error
+/// profile, a Cramér–Rao computation or an output file.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SimError {
@@ -37,10 +38,34 @@ pub enum SimError {
     /// The requested peak amplitude was outside `(0, 1]`.
     #[error("peak amplitude {0} is outside (0, 1]")]
     InvalidAmplitude(f64),
-    /// A sample rate or duration was non-finite.
+    /// The absorption coefficient was negative or non-finite.
+    #[error("absorption coefficient {0} dB/km is negative or non-finite")]
+    InvalidAbsorption(f64),
+    /// The noise level was non-finite.
+    #[error("noise level {0} dB is non-finite")]
+    InvalidNoise(f64),
+    /// The output sample rate could not be written to a WAV file.
+    #[error("sample rate {0} Hz cannot be written to a 16-bit PCM WAV file")]
+    InvalidSampleRate(f64),
+    /// A Fisher information matrix was singular, so no bound exists.
+    #[error("Fisher information matrix is singular")]
+    SingularFisher,
+    /// A sample rate, duration or window was non-finite or empty.
     #[error("value must be finite")]
     NotFinite,
     /// The acoustics model rejected the geometry or the atmosphere.
     #[error("acoustics: {0}")]
     Acoustics(#[from] acoustics::AcousticsError),
+    /// The geodesy crate rejected a position.
+    #[error("geodesy: {0}")]
+    Geodesy(#[from] geodesy::GeodesyError),
+    /// A file could not be created or written.
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    /// The WAV encoder rejected a write.
+    #[error("wav: {0}")]
+    Wav(#[from] hound::Error),
+    /// A truth file could not be serialized or parsed.
+    #[error("json: {0}")]
+    Json(#[from] serde_json::Error),
 }

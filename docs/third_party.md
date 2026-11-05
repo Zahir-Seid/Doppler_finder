@@ -30,7 +30,7 @@ locked version before release.
 | `tracing-subscriber` | MIT | Log formatting and filtering | In scaffold |
 | `uuid` | Apache-2.0 OR MIT | UUIDv7 identifiers | In scaffold |
 | `rayon` | MIT OR Apache-2.0 | Fixed-chunk parallel reductions | Approved, later |
-| `nalgebra` | Apache-2.0 | Linear algebra and covariance | Approved, later |
+| `nalgebra` | Apache-2.0 | Linear algebra and covariance | In `sim` (0.35) for the Fisher matrix |
 | `realfft` | MIT OR Apache-2.0 | Real FFT for the STFT | Approved, verify at lock |
 | `arrow` | Apache-2.0 | Columnar track store | Approved, later |
 | `parquet` | Apache-2.0 | Track file format | Approved, later |
@@ -39,9 +39,11 @@ locked version before release.
 | `rustls` | Apache-2.0 OR MIT OR ISC | TLS for `reqwest` | Approved, later |
 | `levenberg-marquardt` | MIT | Nonlinear least squares, with an in-house fallback | Approved, verify at lock |
 | `statrs` | MIT | Chi-square and distribution functions | Approved, later |
-| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Approved, later |
+| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim` |
 | `proptest` | MIT OR Apache-2.0 | Property tests | Approved, later |
-| `rand` | MIT OR Apache-2.0 | Seeded simulator randomness | Approved, later |
+| `rand` | MIT OR Apache-2.0 | Seeded simulator randomness | In `sim` (0.9) |
+| `rand_chacha` | MIT OR Apache-2.0 | Seeded ChaCha20 generator for reproducible noise and feeds | In `sim` (0.9) |
+| `hound` | Apache-2.0 | 16-bit PCM WAV writing for simulator output | In `sim` (3.5) |
 | `toml` | MIT OR Apache-2.0 | `config/default.toml` | Needed, not added |
 | `sha2` | MIT OR Apache-2.0 | Manifest SHA-256 | Workspace |
 | `hmac` | MIT OR Apache-2.0 | Keyed IP hashing | Needed, not added |
