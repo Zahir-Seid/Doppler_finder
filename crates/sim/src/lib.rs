@@ -13,6 +13,7 @@ mod rng;
 
 pub mod crlb;
 pub mod error;
+pub mod export;
 pub mod noise;
 pub mod scenario;
 pub mod synth;
@@ -20,6 +21,7 @@ pub mod synth;
 pub use absorption::AirAbsorption;
 pub use crlb::CrlbReport;
 pub use error::SimError;
+pub use export::{Truth, TruthEvent, truth, write_truth, write_wav};
 pub use noise::{NoiseColour, NoiseConfig};
 pub use scenario::{AircraftPass, Observer, Scenario};
 pub use synth::{Samples, SynthesisConfig, synthesize};
