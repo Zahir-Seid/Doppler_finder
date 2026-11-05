@@ -26,6 +26,9 @@ pub enum AcousticsError {
     /// A humidity fraction outside `[0, 1]`.
     #[error("relative humidity {0} must lie in [0, 1]")]
     InvalidHumidity(f64),
+    /// Harmonics are numbered from one; there is no zeroth harmonic.
+    #[error("harmonic number must be at least 1")]
+    ZeroHarmonic,
     /// No emission time satisfies the light-time equation for this geometry.
     #[error("no real retarded time for the requested geometry")]
     NoRealSolution,

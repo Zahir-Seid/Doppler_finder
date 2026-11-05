@@ -85,10 +85,12 @@ impl StraightPass {
     /// Convert a reception-time offset to the matching emission-time offset.
     ///
     /// Solves the closed form in SDD section 4 for `τ(u)`, with
-    /// `received_offset_s = u = t_r − t0r` and the result `τ = t_e − t0e` in
-    /// seconds. The heard and emitted closest-approach times differ by
-    /// [`StraightPass::closest_approach_delay_s`]. The root with `t_e <= t_r`
-    /// is returned and `|v| < c` is required.
+    /// `received_offset_s = u = t_r − t0e` and the result `τ = t_e − t0e` in
+    /// seconds. Both offsets are measured from the **emitted** closest
+    /// approach, which is why the heard closest approach sits at `u = d / c`
+    /// rather than at zero; [`StraightPass::received_offset_from_heard_offset`]
+    /// converts an offset from the heard time. The root with `t_e <= t_r` is
+    /// returned and `|v| < c` is required.
     pub fn retarded_offset(
         &self,
         received_offset_s: f64,
@@ -153,6 +155,69 @@ impl StraightPass {
         }
         Ok(Seconds(self.closest_approach_m / sound_speed_m_per_s))
     }
+
+    /// Convert an offset from the heard closest approach to the closed form's.
+    ///
+    /// Fits work in reception time measured from the heard closest approach,
+    /// while [`StraightPass::retarded_offset`] measures `u` from the emitted
+    /// one: `u = heard_offset + d / c`. Returns the errors of
+    /// [`StraightPass::closest_approach_delay_s`].
+    pub fn received_offset_from_heard_offset(
+        &self,
+        heard_offset_s: f64,
+        sound_speed_m_per_s: f64,
+    ) -> Result<Seconds, AcousticsError> {
+        if !heard_offset_s.is_finite() {
+            return Err(AcousticsError::NotFinite);
+        }
+        self.closest_approach_delay_s(sound_speed_m_per_s)
+            .map(|delay| Seconds(heard_offset_s + delay.0))
+    }
+
+    /// Emission time of closest approach, given the heard one.
+    ///
+    /// Inverts `t0r = t0e + d / c` from SDD section 4.
+    pub fn emitted_closest_approach_time(
+        &self,
+        heard_closest_approach_s: Seconds,
+        sound_speed_m_per_s: f64,
+    ) -> Result<Seconds, AcousticsError> {
+        if !heard_closest_approach_s.0.is_finite() {
+            return Err(AcousticsError::NotFinite);
+        }
+        self.closest_approach_delay_s(sound_speed_m_per_s)
+            .map(|delay| Seconds(heard_closest_approach_s.0 - delay.0))
+    }
+
+    /// Observed frequency of one harmonic at a reception-time offset.
+    ///
+    /// Evaluates `f_h = h f0 c / (c + v_r(t_e))` from SDD section 4: the radial
+    /// speed is taken at the emission time that satisfies the light-time
+    /// equation, which [`StraightPass::retarded_offset`] solves. `harmonic` is
+    /// the integer `h >= 1`; `received_offset_s` is `u = t_r − t0e`, the
+    /// convention of [`StraightPass::retarded_offset`].
+    ///
+    /// Returns [`AcousticsError::ZeroHarmonic`] for `h = 0`, and the errors of
+    /// [`StraightPass::retarded_offset`] and
+    /// [`observed_frequency_hz`] for impossible geometry.
+    pub fn received_frequency(
+        &self,
+        fundamental: Hertz,
+        harmonic: u32,
+        received_offset_s: f64,
+        sound_speed_m_per_s: f64,
+    ) -> Result<Hertz, AcousticsError> {
+        if harmonic == 0 {
+            return Err(AcousticsError::ZeroHarmonic);
+        }
+        if !fundamental.0.is_finite() {
+            return Err(AcousticsError::NotFinite);
+        }
+        let retarded = self.retarded_offset(received_offset_s, sound_speed_m_per_s)?;
+        let radial = self.radial_speed(retarded)?;
+        let emitted = Hertz(fundamental.0 * f64::from(harmonic));
+        observed_frequency_hz(emitted, radial, sound_speed_m_per_s)
+    }
 }
 
 #[cfg(test)]
@@ -171,6 +236,13 @@ mod tests {
 
     fn sound_speed() -> f64 {
         Atmosphere::standard().speed_of_sound_m_per_s()
+    }
+
+    fn pass() -> StraightPass {
+        StraightPass {
+            closest_approach_m: 500.0,
+            speed_m_per_s: 250.0,
+        }
     }
 
     fn assert_close(actual: f64, expected: f64) {
@@ -230,10 +302,7 @@ mod tests {
         // SDD section 4: ‖p − x‖ = c (t_r − t_e). This is what "emission time"
         // means and what a delayed copy of the received curve cannot satisfy.
         let c = sound_speed();
-        let pass = StraightPass {
-            closest_approach_m: 500.0,
-            speed_m_per_s: 250.0,
-        };
+        let pass = pass();
         for received_offset_s in [-10.0, -2.0, -0.1, 0.0, 0.1, 2.0, 10.0] {
             let tau = pass
                 .retarded_offset(received_offset_s, c)
@@ -281,13 +350,23 @@ mod tests {
     }
 
     #[test]
+    fn emitted_closest_approach_precedes_the_heard_one_by_the_delay() {
+        let c = sound_speed();
+        let pass = pass();
+        let heard = Seconds(12.0);
+        let emitted = pass
+            .emitted_closest_approach_time(heard, c)
+            .expect("valid geometry");
+        let delay = pass.closest_approach_delay_s(c).expect("valid");
+        assert!(emitted.0 < heard.0, "sound takes time to arrive");
+        assert_close(emitted.0 + delay.0, heard.0);
+    }
+
+    #[test]
     fn radial_speed_is_zero_at_the_emitted_closest_approach() {
-        let pass = StraightPass {
-            closest_approach_m: 500.0,
-            speed_m_per_s: 250.0,
-        };
         assert!(
-            pass.radial_speed(Seconds(0.0))
+            pass()
+                .radial_speed(Seconds(0.0))
                 .expect("valid geometry")
                 .abs()
                 < 1e-12
@@ -296,15 +375,133 @@ mod tests {
 
     #[test]
     fn radial_speed_changes_sign_around_the_pass() {
-        let pass = StraightPass {
-            closest_approach_m: 500.0,
-            speed_m_per_s: 250.0,
-        };
+        let pass = pass();
         let before = pass.radial_speed(Seconds(-5.0)).expect("valid geometry");
         let after = pass.radial_speed(Seconds(5.0)).expect("valid geometry");
         assert!(before < 0.0, "approaching before the pass, got {before}");
         assert!(after > 0.0, "receding after the pass, got {after}");
         assert!((before + after).abs() < 1e-9, "the pass is symmetric");
+    }
+
+    #[test]
+    fn harmonics_are_multiples_of_the_fundamental() {
+        let c = sound_speed();
+        let fundamental = Hertz(100.0);
+        for received_offset_s in [-3.0, 0.0, 3.0] {
+            let first = pass()
+                .received_frequency(fundamental, 1, received_offset_s, c)
+                .expect("valid geometry")
+                .0;
+            let second = pass()
+                .received_frequency(fundamental, 2, received_offset_s, c)
+                .expect("valid geometry")
+                .0;
+            // Scaling by a power of two is exact in binary floating point.
+            assert!(
+                (second - 2.0 * first).abs() < 1e-12,
+                "harmonic 2 must be twice harmonic 1 at u={received_offset_s}"
+            );
+        }
+    }
+
+    #[test]
+    fn received_frequency_stays_between_the_asymptotes() {
+        // SDD section 4: the asymptotes are f0 c/(c − v) before the pass and
+        // f0 c/(c + v) after it, approached from inside.
+        let c = sound_speed();
+        let f0 = 100.0;
+        let approaching = pass()
+            .received_frequency(Hertz(f0), 1, -60.0, c)
+            .expect("valid geometry")
+            .0;
+        let receding = pass()
+            .received_frequency(Hertz(f0), 1, 60.0, c)
+            .expect("valid geometry")
+            .0;
+        let high_asymptote = f0 * c / (c - 250.0);
+        let low_asymptote = f0 * c / (c + 250.0);
+        assert!(approaching < high_asymptote);
+        assert!(approaching > f0);
+        assert!(receding > low_asymptote);
+        assert!(receding < f0);
+    }
+
+    #[test]
+    fn zero_shift_is_heard_one_sound_travel_time_after_emission() {
+        // SDD section 4: `v_r = 0` at `τ = 0`, which is heard at `u = d/c`,
+        // not at `u = 0`. At `u = 0` the aircraft is still 737 m away and
+        // closing at about 184 m/s, so the tone is far above its emitted pitch.
+        let c = sound_speed();
+        let pass = pass();
+        let zero_shift_offset = pass
+            .received_offset_from_heard_offset(0.0, c)
+            .expect("valid geometry")
+            .0;
+        let at_zero_shift = pass
+            .received_frequency(Hertz(100.0), 1, zero_shift_offset, c)
+            .expect("valid geometry")
+            .0;
+        assert!(
+            (at_zero_shift - 100.0).abs() < 0.05,
+            "at the emitted closest approach the shift must vanish, got {at_zero_shift}"
+        );
+        let at_emission_closest = pass
+            .received_frequency(Hertz(100.0), 1, 0.0, c)
+            .expect("valid geometry")
+            .0;
+        assert!(
+            at_emission_closest > 200.0,
+            "still closing hard at u = 0, got {at_emission_closest}"
+        );
+    }
+
+    #[test]
+    fn heard_offset_conversion_shifts_by_the_sound_travel_time() {
+        let c = sound_speed();
+        let pass = pass();
+        let converted = pass
+            .received_offset_from_heard_offset(2.0, c)
+            .expect("valid geometry")
+            .0;
+        let delay = pass.closest_approach_delay_s(c).expect("valid").0;
+        assert_close(converted, 2.0 + delay);
+        assert!(matches!(
+            pass.received_offset_from_heard_offset(f64::NAN, c),
+            Err(AcousticsError::NotFinite)
+        ));
+    }
+
+    #[test]
+    fn received_curve_is_not_a_delayed_copy_of_the_reception_time_curve() {
+        // FR-DM-03: evaluating the radial speed at the reception time instead
+        // of the emission time gives a different curve, not a shifted one. One
+        // second after the emitted closest approach the two disagree by tens
+        // of hertz, far above any fit residual.
+        let c = sound_speed();
+        let u = 1.0;
+        let modelled = pass()
+            .received_frequency(Hertz(100.0), 1, u, c)
+            .expect("valid geometry")
+            .0;
+        let reception_time_copy = observed_frequency_hz(
+            Hertz(100.0),
+            pass().radial_speed(Seconds(u)).expect("valid geometry"),
+            c,
+        )
+        .expect("valid geometry")
+        .0;
+        assert!(
+            (modelled - reception_time_copy).abs() > 1.0,
+            "model {modelled} Hz vs delayed copy {reception_time_copy} Hz"
+        );
+    }
+
+    #[test]
+    fn zero_harmonic_is_rejected() {
+        assert!(matches!(
+            pass().received_frequency(Hertz(100.0), 0, 0.0, sound_speed()),
+            Err(AcousticsError::ZeroHarmonic)
+        ));
     }
 
     #[test]
