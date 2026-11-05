@@ -43,7 +43,7 @@ locked version before release.
 | `proptest` | MIT OR Apache-2.0 | Property tests | Approved, later |
 | `rand` | MIT OR Apache-2.0 | Seeded simulator randomness | Approved, later |
 | `toml` | MIT OR Apache-2.0 | `config/default.toml` | Needed, not added |
-| `sha2` | MIT OR Apache-2.0 | Manifest SHA-256 | Needed, not added |
+| `sha2` | MIT OR Apache-2.0 | Manifest SHA-256 | Workspace |
 | `hmac` | MIT OR Apache-2.0 | Keyed IP hashing | Needed, not added |
 | `subtle` | BSD-3-Clause | Constant-time token comparison | Needed, not added |
 | `flate2` | MIT OR Apache-2.0 | Compressed ADS-B dumps, if needed | Conditional |

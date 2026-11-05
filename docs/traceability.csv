@@ -20,7 +20,7 @@ FR-SL-05,S,v0,6.4,search,T-SL-05,not_started,planned
 FR-OUT-01,M,v1,6.5;10.4,pipeline;search,T-OUT-01,not_started,planned
 FR-OUT-02,M,v1,10.4,pipeline,T-OUT-02,not_started,planned
 FR-OUT-03,M,v1,6.6,pipeline,T-OUT-03,not_started,planned
-FR-OUT-04,M,v0,9.4,pipeline;cli,T-OUT-04,not_started,planned
+FR-OUT-04,M,v0,9.4,pipeline;cli,T-OUT-04,partial,partial
 FR-SIM-01,M,v0,7,sim,T-SIM-01,not_started,planned
 FR-SIM-02,M,v0,7,sim,T-SIM-02,not_started,planned
 FR-SIM-03,S,v0,7,sim,T-SIM-03,not_started,planned
@@ -38,7 +38,7 @@ FR-EX-02,C,v3,8,none,T-EX-02,deferred_v3,deferred_v3
 NFR-01,NFR,v0-v1,6.4;13,search;sim,T-NFR-01,not_started,planned
 NFR-02,NFR,v0-v1,11.3,pipeline;runtime,T-NFR-02,not_started,planned
 NFR-03,NFR,v1,11.3;11.4,runtime;api,T-NFR-03,not_started,planned
-NFR-04,NFR,v0-v1,9.4,pipeline,T-NFR-04,not_started,planned
+NFR-04,NFR,v0-v1,9.4,pipeline,T-NFR-04,partial,passing
 NFR-05,NFR,v0-v1,3,workspace,T-NFR-05,scaffolded,planned
 NFR-06,NFR,v0-v1,3.1,workspace,T-NFR-06,scaffolded,planned
 NFR-07,NFR,v0-v1,13,all,T-NFR-07,not_started,planned
