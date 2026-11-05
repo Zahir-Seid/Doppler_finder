@@ -1,5 +1,5 @@
 requirement,priority,release,sdd_section,crate,test_id,implementation_status,test_status
-FR-IN-01,M,v1,5;11.3,dsp;api,T-IN-01,not_started,planned
+FR-IN-01,M,v1,5;11.3,dsp;api,T-IN-01,partial,passing
 FR-IN-02,M,v0,10.2,search,T-IN-02,not_started,planned
 FR-IN-03,S,v0,6.2,search,T-IN-03,not_started,planned
 FR-DM-01,M,v0,5.3,events;dsp,T-DM-01,not_started,planned

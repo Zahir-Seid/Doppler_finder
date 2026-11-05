@@ -126,6 +126,21 @@ holds implementation-level questions and cross-document risks.
   measured temperature and humidity, then re-derive the golden digest and say
   in the error budget whether absorption matters at all.
 
+## Q-14: Analysis band and rate
+
+- **Status:** Open.
+- **Context:** SDD section 5 fixes a passband of about 20–1500 Hz and an 80 dB
+  stopband, but not the output rate, the exact lower edge or the width of the
+  transition band. `docs/validation-plan.md` also says the 20 Hz high-pass
+  should be checked against real-device microphone roll-off before it is fixed.
+- **Default:** Resample to 4 kHz with a 20 Hz lower edge, a 1.5 kHz passband
+  edge, a 1.9 kHz stopband edge and 80 dB attenuation. The high-pass stopband
+  starts at one quarter of its passband edge. The 4 kHz rate gives 800 Hz of
+  margin above the passband and keeps later stages cheap.
+- **Resolution:** Measure detection and fit quality against the G1/G2 scenario
+  suite and real clips, including phone low-frequency roll-off; change the
+  default only with the measurement recorded.
+
 ## Q-13: Error-budget ranking needs the estimators
 
 - **Status:** Open until `events` and `search` exist.

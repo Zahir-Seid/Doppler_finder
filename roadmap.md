@@ -6,7 +6,7 @@ norms, those documents win.
 
 - **Last updated:** 2026-11-05
 - **Last recorded commit:** `ea12287` (`develop`)
-- **Current milestone:** M1 library scope closed; M2 (DSP front end) is next
+- **Current milestone:** M2 (DSP front end) in progress
 - **Release under construction:** v0 research core
 
 Read first, in this order:
@@ -29,15 +29,15 @@ Read first, in this order:
 | Status | Count |
 | --- | ---: |
 | Done | 2 |
-| Partial | 6 |
+| Partial | 7 |
 | Scaffolded | 2 |
-| Not started | 38 |
+| Not started | 37 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 5 partial,
-17 not started**. The two done rows are `FR-SIM-01` (synthesis and truth) and
-`FR-SIM-03` (Cramér–Rao bound). The partial rows are `FR-DM-03`, `FR-DA-03`,
-`FR-OUT-04`, `FR-SIM-02`, `FR-SIM-04` and `NFR-04`.
+For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 6 partial,
+16 not started**. The two done rows are `FR-SIM-01` (synthesis and truth) and
+`FR-SIM-03` (Cramér–Rao bound). The partial rows are `FR-IN-01`, `FR-DM-03`,
+`FR-DA-03`, `FR-OUT-04`, `FR-SIM-02`, `FR-SIM-04` and `NFR-04`.
 
 ### 1.2 Code state
 
@@ -47,7 +47,7 @@ For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 5 partial,
 | `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; DEM/geoid traits only |
 | `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
-| `dsp` | Seed | Window and STFT geometry only |
+| `dsp` | Partial | Window and STFT geometry; band-limit, rational resampling and DC removal |
 | `events` | Types only | `Event`, `EventFit`, `EventObservation`, `EventQuality` |
 | `adsb` | Types only | `TrackSource`, track model, linear interpolation |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
@@ -59,9 +59,10 @@ For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 5 partial,
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates at the recorded commit: `cargo fmt --check`, `clippy -D warnings`
-and the full test suite pass. 124 tests pass (30 acoustics, 29 core-types,
-11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit` run in
-CI. The toolchain stays on stable Rust 1.99.1 with no nightly features (NFR-05).
+and the full test suite pass. 145 tests pass (30 acoustics, 29 core-types,
+21 dsp, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
+run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
+(NFR-05).
 
 ### 1.3 What “done” means here
 
@@ -229,9 +230,13 @@ per-sample/per-bin loops.
   sample rate, duration, finiteness and size; record `ffmpeg -version` in the
   manifest. No FFmpeg libraries linked into the binary. FR-IN-01 ships in v1, but
   the seam is needed for v0 real-clip work, so it may land early.
-- **DSP-02** `[ ]` Band-limit, decimate and remove DC (FR-IN-01).
-  Polyphase FIR designed with the Kaiser window method, stopband at least 80 dB,
-  passband roughly 20–1500 Hz. Tests with tones and aliasing probes.
+- **DSP-02** `[x]` Band-limit, decimate and remove DC (FR-IN-01).
+  Rational `L/M` polyphase resampling with a Kaiser-windowed FIR: 1.5 kHz
+  passband, 1.9 kHz stopband edge and 80 dB attenuation by default, with a
+  20 Hz high-pass at the analysis rate and DC removed after the rate change.
+  Tests: `frontend::tests::*` in `crates/dsp`, covering 44.1 kHz and 48 kHz
+  passband tones, stopband attenuation, aliasing probes, high-pass rejection of
+  sub-audio tones, DC removal, determinism and rejected configurations.
 - **DSP-03** `[ ]` Real STFT (FR-DM-01).
   Kaiser-windowed, 75% overlap, frame geometry from `StftConfig`, zero-padding,
   parabolic peak interpolation for sub-bin frequency. Add `realfft`.
@@ -543,13 +548,12 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **DSP-02** band-limit/decimate/DC removal.
-2. **DSP-03** real STFT with interpolation.
-3. **DSP-04** whitening and z-map.
-4. **DSP-05** ridge tracker.
-5. **DSP-01** decoder seam (needed before real media, can follow the PCM work).
-6. **EVT-01** detector, then **EVT-02** track-then-fit.
-7. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+1. **DSP-03** real STFT with interpolation.
+2. **DSP-04** whitening and z-map.
+3. **DSP-05** ridge tracker.
+4. **DSP-01** decoder seam (needed before real media, can follow the PCM work).
+5. **EVT-01** detector, then **EVT-02** track-then-fit.
+6. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.
