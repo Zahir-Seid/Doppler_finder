@@ -6,6 +6,7 @@ folder also holds the working records that make progress auditable.
 
 | File | Purpose | State |
 | --- | --- | --- |
+| [../roadmap.md](../roadmap.md) | Execution order, milestones and per-task acceptance criteria | Living |
 | [PRD.md](PRD.md) | Requirements, releases, gates, risks, decisions | Authoritative |
 | [SDD.md](SDD.md) | Architecture, methods, data design, API, operations | Authoritative |
 | [rust-working-norms.md](rust-working-norms.md) | Toolchain, lints, tests, definition of done | Authoritative |

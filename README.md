@@ -6,6 +6,7 @@ This repository is the v0 research core: a Rust workspace, a simulator-first tes
 
 ## Documentation
 
+- [Roadmap](roadmap.md) — execution order, current state and per-task acceptance criteria.
 - [PRD](docs/PRD.md) — what and why, requirements, gates, risks.
 - [SDD](docs/SDD.md) — architecture, methods, data design, API, operations.
 - [Rust Working Norms](docs/rust-working-norms.md) — toolchain, lints, tests, definition of done.
