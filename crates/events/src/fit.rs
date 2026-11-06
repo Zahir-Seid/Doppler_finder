@@ -21,13 +21,13 @@ use crate::detect::EventHypothesis;
 use crate::error::EventError;
 
 /// Number of fitted event parameters: `(f0, v, d, t0r)`.
-const PARAMETER_COUNT: usize = 4;
+pub(crate) const PARAMETER_COUNT: usize = 4;
 /// Position of the fundamental frequency in the parameter vector.
-const PARAM_FUNDAMENTAL: usize = 0;
+pub(crate) const PARAM_FUNDAMENTAL: usize = 0;
 /// Position of the aircraft speed in the parameter vector.
-const PARAM_SPEED: usize = 1;
+pub(crate) const PARAM_SPEED: usize = 1;
 /// Position of the closest-approach distance in the parameter vector.
-const PARAM_CLOSEST: usize = 2;
+pub(crate) const PARAM_CLOSEST: usize = 2;
 
 /// Relative step of a parameter's central difference.
 ///
@@ -353,13 +353,19 @@ pub struct FitReport {
     pub fit: EventFit,
     /// Estimator that produced the fit.
     pub method: FitMethod,
-    /// Weighted residual sum of squares at the optimum.
+    /// Fit statistic at the optimum: the weighted residual sum of squares
+    /// for [`FitMethod::TrackThenFit`], and the summed whitened power for
+    /// [`FitMethod::Direct`].
     pub chi_squared: f64,
     /// Observations minus fitted parameters; always at least one.
     pub degrees_of_freedom: usize,
-    /// `max(1, χ²/dof)` applied to the covariance (SDD section 5.5).
+    /// `max(1, χ²/dof)` applied to the track-fit covariance (SDD section 5.5);
+    /// one for the direct estimator, whose Hessian is already the observed
+    /// information.
     pub covariance_scale: f64,
-    /// Huber objective at the optimum, in weighted residual units.
+    /// Objective at the optimum, lower is better: the Huber cost for
+    /// [`FitMethod::TrackThenFit`] and the negative summed power for
+    /// [`FitMethod::Direct`].
     pub robust_cost: f64,
     /// Correlation of the speed and closest-distance estimates.
     pub speed_closest_correlation: f64,
@@ -386,16 +392,16 @@ struct Observation {
 
 /// The four fitted parameters, in a named form that avoids unchecked indexing.
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct Parameters {
-    fundamental_hz: f64,
-    speed_m_per_s: f64,
-    closest_m: f64,
-    heard_at_s: f64,
+pub(crate) struct Parameters {
+    pub(crate) fundamental_hz: f64,
+    pub(crate) speed_m_per_s: f64,
+    pub(crate) closest_m: f64,
+    pub(crate) heard_at_s: f64,
 }
 
 impl Parameters {
     /// Seed the optimizer from a detector hypothesis.
-    fn from_hypothesis(seed: &EventHypothesis) -> Self {
+    pub(crate) fn from_hypothesis(seed: &EventHypothesis) -> Self {
         Self {
             fundamental_hz: seed.fundamental_hz.0,
             speed_m_per_s: seed.speed_m_per_s,
@@ -405,7 +411,7 @@ impl Parameters {
     }
 
     /// One parameter by vector position.
-    fn get(self, index: usize) -> f64 {
+    pub(crate) fn get(self, index: usize) -> f64 {
         match index {
             PARAM_FUNDAMENTAL => self.fundamental_hz,
             PARAM_SPEED => self.speed_m_per_s,
@@ -415,7 +421,7 @@ impl Parameters {
     }
 
     /// Write one parameter by vector position.
-    fn set(&mut self, index: usize, value: f64) {
+    pub(crate) fn set(&mut self, index: usize, value: f64) {
         match index {
             PARAM_FUNDAMENTAL => self.fundamental_hz = value,
             PARAM_SPEED => self.speed_m_per_s = value,
@@ -430,13 +436,13 @@ impl Parameters {
     }
 
     /// The same parameters with one entry moved.
-    fn with_added(mut self, index: usize, delta: f64) -> Self {
+    pub(crate) fn with_added(mut self, index: usize, delta: f64) -> Self {
         self.add(index, delta);
         self
     }
 
     /// Whether the geometry admits the subsonic emission-time model.
-    fn is_physical(self, sound_speed_m_per_s: f64) -> bool {
+    pub(crate) fn is_physical(self, sound_speed_m_per_s: f64) -> bool {
         self.fundamental_hz.is_finite()
             && self.speed_m_per_s.is_finite()
             && self.closest_m.is_finite()
@@ -752,6 +758,26 @@ fn predicted_hz(
     observation: &Observation,
     sound_speed_m_per_s: f64,
 ) -> Option<f64> {
+    predicted_hz_at(
+        parameters,
+        observation.heard_at_s,
+        observation.harmonic,
+        sound_speed_m_per_s,
+    )
+}
+
+/// Predicted frequency of one harmonic at one heard time, hertz.
+///
+/// Shared by the track-then-fit and direct estimators. Implements the
+/// emission-time curve of `docs/SDD.md` section 4; `heard_at_s` is on the audio
+/// clock and `harmonic` is one for the fundamental. Returns `None` when the
+/// geometry is unphysical or the light-time solution does not exist.
+pub(crate) fn predicted_hz_at(
+    parameters: &Parameters,
+    heard_at_s: f64,
+    harmonic: u32,
+    sound_speed_m_per_s: f64,
+) -> Option<f64> {
     if !parameters.is_physical(sound_speed_m_per_s) {
         return None;
     }
@@ -759,7 +785,7 @@ fn predicted_hz(
         closest_approach_m: parameters.closest_m,
         speed_m_per_s: parameters.speed_m_per_s,
     };
-    let heard_offset_s = observation.heard_at_s - parameters.heard_at_s;
+    let heard_offset_s = heard_at_s - parameters.heard_at_s;
     let received_offset_s = pass
         .received_offset_from_heard_offset(heard_offset_s, sound_speed_m_per_s)
         .ok()?
@@ -767,7 +793,7 @@ fn predicted_hz(
     let frequency = pass
         .received_frequency(
             Hertz(parameters.fundamental_hz),
-            observation.harmonic,
+            harmonic,
             received_offset_s,
             sound_speed_m_per_s,
         )
@@ -1291,7 +1317,7 @@ fn bisect_profile(
 }
 
 /// Speed/closest correlation from the scaled covariance.
-fn correlation(
+pub(crate) fn correlation(
     covariance: &SMatrix<f64, PARAMETER_COUNT, PARAMETER_COUNT>,
 ) -> Result<f64, EventError> {
     for index in 0..PARAMETER_COUNT {
@@ -1325,7 +1351,9 @@ fn correlation(
 }
 
 /// Convert the nalgebra covariance into the public fixed array.
-fn covariance_array(covariance: &SMatrix<f64, PARAMETER_COUNT, PARAMETER_COUNT>) -> [[f64; 4]; 4] {
+pub(crate) fn covariance_array(
+    covariance: &SMatrix<f64, PARAMETER_COUNT, PARAMETER_COUNT>,
+) -> [[f64; 4]; 4] {
     let mut output = [[0.0_f64; 4]; 4];
     for row in 0..PARAMETER_COUNT {
         for column in 0..PARAMETER_COUNT {
