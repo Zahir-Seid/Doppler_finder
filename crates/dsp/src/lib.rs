@@ -6,19 +6,25 @@
 //! windowed transform and its sub-bin interpolation live in [`stft`]; the per
 //! bin noise whitening that turns magnitudes into a z-map lives in [`whiten`],
 //! and the ridge tracking ladder that follows a curve through it lives in
-//! [`ridge`].
+//! [`ridge`]. Decoding happens behind the [`media::MediaDecoder`] seam, which
+//! keeps the codec tool in a child process (SDD T-1).
 
 pub mod error;
 pub mod frontend;
+pub mod media;
 pub mod ridge;
 pub mod stft;
 pub mod whiten;
 pub mod window;
 
-pub use error::DspError;
+pub use error::{DspError, MediaProblem};
 pub use frontend::{
     DEFAULT_ATTENUATION_DB, DEFAULT_LOW_CUT_HZ, DEFAULT_OUTPUT_RATE_HZ, DEFAULT_PASSBAND_HZ,
     DEFAULT_STOPBAND_HZ, FrontEndConfig, remove_dc, resample_to_analysis_rate,
+};
+pub use media::{
+    DEFAULT_MAX_DURATION_S, DEFAULT_MAX_FILE_BYTES, DEFAULT_TIMEOUT, DecodedAudio, DecoderConfig,
+    FfmpegDecoder, MediaDecoder,
 };
 pub use ridge::{
     Corridor, Ridge, RidgeConfig, RidgeMethod, RidgePoint, peaks, smoothed, track_ridge, viterbi,
