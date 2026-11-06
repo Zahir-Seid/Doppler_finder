@@ -29,6 +29,16 @@ cargo deny check
 cargo audit
 ```
 
+- **Supply-chain tools.** `cargo deny` and `cargo audit` are not workspace
+  dependencies; install them once per machine with
+  `cargo install cargo-deny cargo-audit --locked`. Both read the repository's
+  `deny.toml`, which is the same file CI uses through `cargo-deny-action` and
+  `rustsec/audit-check`, so there is no second configuration to keep in step.
+  `cargo deny check` fails on a disallowed licence, a denied advisory, a
+  wildcard requirement, or an unknown registry or git source. A machine without
+  the tools cannot run this step; say so in the pull request rather than leaving
+  the gate unmentioned.
+
 ## 3. Style, lints and documentation
 
 - **Format.** Default `rustfmt`, no custom config. Never hand-format around it.

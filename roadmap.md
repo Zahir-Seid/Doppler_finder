@@ -653,7 +653,16 @@ These can land with any milestone, but must not distract from the critical path:
 
 - **X-01** `[ ]` Traceability CI checker (NFR-07): fail CI when a requirement row
   has no test or an invalid status.
-- **X-02** `[ ]` `cargo-deny`/`cargo-audit` local instructions and CI parity.
+- **X-02** `[x]` `cargo-deny`/`cargo-audit` local instructions and CI parity.
+  The norms now name the one-time `cargo install cargo-deny cargo-audit
+  --locked`, state that both tools read the repository's `deny.toml` (the same
+  file `cargo-deny-action` and `rustsec/audit-check` use in CI), and require a
+  missing gate to be reported rather than skipped silently. `cargo deny check`
+  was run on this tree: advisories, bans, licences and sources all pass, with
+  warnings only for internal workspace path dependencies counted as wildcards
+  and for the `ISC` and `Unicode-DFS-2016` allowances no crate currently uses.
+  `cargo audit` could not be installed here; `cargo deny`'s advisory check reads
+  the same RustSec database, so the vulnerability gate did run.
 - **X-03** `[ ]` Criterion benchmarks for `dsp` and `search` before optimization.
 - **X-04** `[ ]` Property tests for transform round trips, whitening and
   likelihood maximality.
