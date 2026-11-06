@@ -94,4 +94,12 @@ pub enum DspError {
     /// The real FFT rejected its input or output buffers.
     #[error("the real FFT rejected its input or output buffers")]
     TransformFailed,
+    /// A mask or map did not carry one value per frame and bin.
+    #[error("expected {expected} values, got {actual}")]
+    ShapeMismatch {
+        /// Number of values the geometry requires.
+        expected: usize,
+        /// Number of values supplied.
+        actual: usize,
+    },
 }

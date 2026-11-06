@@ -3,12 +3,13 @@
 //! `docs/SDD.md` section 5 fixes the front end: decode to mono, band-limit to
 //! roughly 20-1500 Hz, decimate with a Kaiser FIR, remove DC, then form a
 //! whitened STFT. The band-limit and rate change live in [`frontend`]; the
-//! windowed transform and its sub-bin interpolation live in [`stft`]. Whitening
-//! and ridge tracking are added with their own tasks (`DSP-04`, `DSP-05`).
+//! windowed transform and its sub-bin interpolation live in [`stft`]; the per
+//! bin noise whitening that turns magnitudes into a z-map lives in [`whiten`].
 
 pub mod error;
 pub mod frontend;
 pub mod stft;
+pub mod whiten;
 pub mod window;
 
 pub use error::DspError;
@@ -17,4 +18,5 @@ pub use frontend::{
     DEFAULT_STOPBAND_HZ, FrontEndConfig, remove_dc, resample_to_analysis_rate,
 };
 pub use stft::{DEFAULT_OVERLAP_FRACTION, SURVEY_WINDOW_S, Spectrogram, StftConfig, spectrogram};
+pub use whiten::{DEFAULT_WINDOW_FRAMES, WhiteningConfig, ZMap, whiten, whiten_with_mask};
 pub use window::{DEFAULT_KAISER_BETA, WindowKind, window};
