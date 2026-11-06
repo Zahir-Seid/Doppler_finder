@@ -237,32 +237,52 @@ impl Spectrogram {
     /// The vertex is limited to half a bin either side of `bin`, so the caller
     /// still has to choose the right bin.
     pub fn interpolated_peak_hz(&self, frame: usize, bin: usize) -> Option<f64> {
-        let bins = self.bin_count();
-        if bin == 0 || bin.checked_add(1)? >= bins {
-            return None;
-        }
-        let previous = bin.checked_sub(1)?;
-        let left = self.magnitude(frame, previous)?;
-        let centre = self.magnitude(frame, bin)?;
-        let right = self.magnitude(frame, bin.checked_add(1)?)?;
-        if left <= 0.0 || centre <= 0.0 || right <= 0.0 {
-            return None;
-        }
-        let left = f64::from(left).ln();
-        let centre = f64::from(centre).ln();
-        let right = f64::from(right).ln();
-        let curvature = left - 2.0 * centre + right;
-        // A peak has downward curvature; a flat or upward bin is not one.
-        if !curvature.is_finite() || curvature >= 0.0 {
-            return None;
-        }
-        let offset = 0.5 * (left - right) / curvature;
-        if !offset.is_finite() {
-            return None;
-        }
-        let offset = offset.clamp(-0.5, 0.5);
-        Some(self.config.bin_hz(bin)? + offset * self.config.bin_width_hz())
+        parabolic_peak_hz(&self.magnitudes, self.bin_count(), frame, bin, &self.config)
     }
+}
+
+/// Sub-bin peak frequency from a row-major map of non-negative magnitudes.
+///
+/// Fits a parabola in log magnitude through `bin - 1`, `bin` and `bin + 1` and
+/// returns the vertex frequency (SDD section 5). `None` at an edge bin, for a
+/// non-positive magnitude, or where the vertex is not a peak.
+fn parabolic_peak_hz(
+    values: &[f32],
+    bins: usize,
+    frame: usize,
+    bin: usize,
+    config: &StftConfig,
+) -> Option<f64> {
+    if bin == 0 || bin.checked_add(1)? >= bins {
+        return None;
+    }
+    let previous = bin.checked_sub(1)?;
+    let next = bin.checked_add(1)?;
+    let base = frame.checked_mul(bins)?;
+    let at = |offset: usize| {
+        let index = base.checked_add(offset)?;
+        values.get(index).copied().map(f64::from)
+    };
+    let left = at(previous)?;
+    let centre = at(bin)?;
+    let right = at(next)?;
+    if left <= 0.0 || centre <= 0.0 || right <= 0.0 {
+        return None;
+    }
+    let left = left.ln();
+    let centre = centre.ln();
+    let right = right.ln();
+    let curvature = left - 2.0 * centre + right;
+    // A peak has downward curvature; a flat or upward bin is not one.
+    if !curvature.is_finite() || curvature >= 0.0 {
+        return None;
+    }
+    let offset = 0.5 * (left - right) / curvature;
+    if !offset.is_finite() {
+        return None;
+    }
+    let offset = offset.clamp(-0.5, 0.5);
+    Some(config.bin_hz(bin)? + offset * config.bin_width_hz())
 }
 
 /// Compute a windowed magnitude spectrogram of mono samples.
