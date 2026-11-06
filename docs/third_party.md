@@ -30,7 +30,7 @@ locked version before release.
 | `tracing-subscriber` | MIT | Log formatting and filtering | In scaffold |
 | `uuid` | Apache-2.0 OR MIT | UUIDv7 identifiers | In scaffold |
 | `rayon` | MIT OR Apache-2.0 | Fixed-chunk parallel reductions | Approved, later |
-| `nalgebra` | Apache-2.0 | Linear algebra and covariance | In `sim` (0.35) for the Fisher matrix |
+| `nalgebra` | Apache-2.0 | Linear algebra and covariance | In `sim` (0.35) for the Fisher matrix and in `events` for the fit normal equations |
 | `realfft` | MIT | Real FFT for the STFT | In `dsp` (3.5.1) |
 | `rustfft` | MIT OR Apache-2.0 | FFT engine behind `realfft` | Indirect, via `realfft` (6.4.1) |
 | `arrow` | Apache-2.0 | Columnar track store | Approved, later |
