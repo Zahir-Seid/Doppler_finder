@@ -132,9 +132,15 @@ impl ZMap {
 
     /// Build a map from existing values, checking the shape.
     ///
-    /// Used by the whitening itself and by the ridge tracker's tests, which
-    /// need a map with exactly known contents.
-    pub(crate) fn from_parts(
+    /// Used by the whitening itself, by the ridge tracker's tests and by crates
+    /// that need a map with exactly known contents, such as the detector's
+    /// fixtures.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DspError`] for an invalid geometry, a value count that does
+    /// not match the shape, or a non-finite value.
+    pub fn from_parts(
         config: StftConfig,
         frame_times_s: Vec<f64>,
         values: Vec<f32>,
