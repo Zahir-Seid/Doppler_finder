@@ -11,5 +11,8 @@ pub mod quality;
 
 pub use detect::{Detection, DetectorConfig, EventHypothesis, GridRange, detect};
 pub use error::EventError;
-pub use fit::{Event, EventFit, EventObservation};
+pub use fit::{
+    Event, EventFit, EventObservation, FitConfig, FitMethod, FitReport, HarmonicTrack,
+    ProfileInterval, TrackPoint, fit_event, fit_event_from_seeds, multi_start_seeds,
+};
 pub use quality::EventQuality;

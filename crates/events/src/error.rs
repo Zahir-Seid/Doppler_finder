@@ -46,4 +46,42 @@ pub enum EventError {
     /// A length or count was zero where at least one is required.
     #[error("length must be at least one")]
     ZeroLength,
+    /// Two arrays or slices that must line up did not.
+    #[error("length {actual} does not match the expected {expected}")]
+    LengthMismatch {
+        /// Required length.
+        expected: usize,
+        /// Actual length.
+        actual: usize,
+    },
+    /// Two tracks claimed the same harmonic index.
+    #[error("harmonic {0} appears more than once")]
+    DuplicateHarmonic(u32),
+    /// A harmonic track held fewer points than the fit requires.
+    #[error("harmonic {harmonic} has {actual} points, at least {needed} are needed")]
+    InsufficientTrackPoints {
+        /// Harmonic index.
+        harmonic: u32,
+        /// Minimum points per harmonic.
+        needed: usize,
+        /// Points the track actually has.
+        actual: usize,
+    },
+    /// The whole fit held no more observations than free parameters.
+    #[error("the fit needs more than {needed} observations, got {actual}")]
+    InsufficientObservations {
+        /// Number of free parameters.
+        needed: usize,
+        /// Observations supplied.
+        actual: usize,
+    },
+    /// A frequency variance was zero, negative or non-finite.
+    #[error("frequency variance {0} is not positive and finite")]
+    InvalidVariance(f64),
+    /// The normal equations carried no information about one or more parameters.
+    #[error("the fit is singular: the observations do not constrain every parameter")]
+    SingularFit,
+    /// The emission-time model has no real solution for the fitted geometry.
+    #[error("the Doppler model has no real solution for this geometry")]
+    ModelUndefined,
 }
