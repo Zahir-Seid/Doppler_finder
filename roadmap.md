@@ -6,7 +6,7 @@ norms, those documents win.
 
 - **Last updated:** 2026-11-06
 - **Last recorded commit:** `14f8741` (`develop`)
-- **Current milestone:** M2 (DSP front end) in progress
+- **Current milestone:** M3 (event measurement); M2 closed
 - **Release under construction:** v0 research core
 
 Read first, in this order:
@@ -62,7 +62,7 @@ row closes only when the detector (EVT-01) runs on top of it.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 198 tests pass (30 acoustics, 29 core-types, 74 dsp,
+the full test suite pass. 199 tests pass (30 acoustics, 29 core-types, 75 dsp,
 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -223,7 +223,10 @@ Residual work:
   pass) so the manoeuvre row of the G2 budget can be simulated (FR-SIM-01). If
   the scenario model cannot express it, extend the model and its tests first.
 
-### M2 — DSP front end (next)
+### M2 — DSP front end
+
+**Status:** `[x]` closed: a simulated pass is decoded, decimated, transformed,
+whitened and tracked end to end.
 
 Read SDD section 5. The crate must stay synchronous and allocation-free inside
 per-sample/per-bin loops.
@@ -281,6 +284,19 @@ per-sample/per-bin loops.
   Tests: `ridge::tests::*`, covering a clean ridge at level 1, a bright outlier
   rejected by Viterbi, a faint ridge smoothed with variances, corridor
   conversion and validation, and determinism.
+
+- **DSP-06** `[x]` M2 exit test (FR-IN-01, FR-DM-01).
+  `crates/dsp/tests/m2_exit.rs` writes a 16-bit 48 kHz pass with a known
+  straight-line Doppler curve over seeded noise, decodes it with the FFmpeg
+  adapter, resamples to 4 kHz, forms a survey spectrogram, whitens it and tracks
+  the ridge through a corridor built from the same curve. Each frame must sit
+  inside the band its one-second window spans, widened by two and a half bins.
+  The measurement showed that greedy peaks land at the leading edge of the smear
+  because whitening normalises each bin against its neighbouring frames, and that
+  a pass sweeping far more slowly than the window's mainlobe is invisible to
+  whitening at all; both are why the estimator fits the curve instead of picking
+  peaks. One frame is trimmed at each end for the resampler's edge transient.
+  Commit `1820e37`.
 
 **Exit:** a simulated WAV is decoded, decimated, transformed, whitened and
 tracked; a known ridge is recovered within a stated tolerance; results are
@@ -581,11 +597,10 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **M2 exit test**: one integration test that runs decode → resample → STFT →
-   whitening → ridge on a simulated WAV and recovers a known curve within a
-   stated tolerance. This is the M2 exit criterion and the only M2 work left.
-2. **EVT-01** detector, then **EVT-02** track-then-fit.
-3. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+1. **EVT-01** detector, then **EVT-02** track-then-fit. M2 is closed by DSP-06.
+2. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+3. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
+   the tools are not installed on every machine.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.
