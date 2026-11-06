@@ -77,4 +77,21 @@ pub enum DspError {
         /// Requested output rate in hertz.
         output_hz: f64,
     },
+    /// The transform length was shorter than the frame or not even.
+    #[error("FFT length {fft_len} is invalid for frame length {frame}")]
+    InvalidFftLength {
+        /// Requested transform length in samples.
+        fft_len: usize,
+        /// Frame length in samples.
+        frame: usize,
+    },
+    /// A window shape parameter was NaN, infinite or negative.
+    #[error("window shape parameter {beta} must be finite and non-negative")]
+    InvalidWindow {
+        /// Requested Kaiser shape parameter.
+        beta: f64,
+    },
+    /// The real FFT rejected its input or output buffers.
+    #[error("the real FFT rejected its input or output buffers")]
+    TransformFailed,
 }

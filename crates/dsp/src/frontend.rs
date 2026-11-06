@@ -9,6 +9,7 @@
 use std::f64::consts::TAU;
 
 use crate::error::DspError;
+use crate::window::bessel_i0;
 
 /// Default output rate of the analysis front end.
 pub const DEFAULT_OUTPUT_RATE_HZ: f64 = 4_000.0;
@@ -39,12 +40,6 @@ const MAX_RATIO_PART: usize = 1_000_000;
 
 /// Scale used to turn decimal sample rates into an exact rational ratio.
 const RATE_SCALE: f64 = 1_000_000.0;
-
-/// Terms allowed in the modified Bessel series.
-const BESSEL_MAX_TERMS: usize = 200;
-
-/// Relative convergence threshold for the modified Bessel series.
-const BESSEL_EPSILON: f64 = 1.0e-16;
 
 /// Kaiser's empirical FIR length factor for a given stopband attenuation.
 const KAISER_LENGTH_FACTOR: f64 = 2.285;
@@ -415,23 +410,6 @@ fn kaiser_beta(attenuation_db: f64) -> f64 {
     }
 }
 
-/// Modified Bessel function of the first kind, order zero.
-fn bessel_i0(value: f64) -> f64 {
-    let half = value / 2.0;
-    let half_squared = half * half;
-    let mut term = 1.0;
-    let mut sum = 1.0;
-    for order in 1..=BESSEL_MAX_TERMS {
-        let order_f = order as f64;
-        term *= half_squared / (order_f * order_f);
-        sum += term;
-        if term.abs() <= sum.abs() * BESSEL_EPSILON {
-            break;
-        }
-    }
-    sum
-}
-
 /// A polyphase decomposition of the anti-alias filter.
 #[derive(Debug, Clone)]
 struct ResamplingPlan {
@@ -507,10 +485,11 @@ impl ResamplingPlan {
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_OUTPUT_RATE_HZ, FrontEndConfig, bessel_i0, design_highpass, design_lowpass,
-        rational_ratio, remove_dc, resample_to_analysis_rate,
+        DEFAULT_OUTPUT_RATE_HZ, FrontEndConfig, design_highpass, design_lowpass, rational_ratio,
+        remove_dc, resample_to_analysis_rate,
     };
     use crate::error::DspError;
+    use crate::window::bessel_i0;
 
     fn tone(rate_hz: f64, duration_s: f64, frequency_hz: f64, amplitude: f64) -> Vec<f32> {
         let count = (rate_hz * duration_s).round() as usize;

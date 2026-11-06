@@ -31,7 +31,8 @@ locked version before release.
 | `uuid` | Apache-2.0 OR MIT | UUIDv7 identifiers | In scaffold |
 | `rayon` | MIT OR Apache-2.0 | Fixed-chunk parallel reductions | Approved, later |
 | `nalgebra` | Apache-2.0 | Linear algebra and covariance | In `sim` (0.35) for the Fisher matrix |
-| `realfft` | MIT OR Apache-2.0 | Real FFT for the STFT | Approved, verify at lock |
+| `realfft` | MIT | Real FFT for the STFT | In `dsp` (3.5.1) |
+| `rustfft` | MIT OR Apache-2.0 | FFT engine behind `realfft` | Indirect, via `realfft` (6.4.1) |
 | `arrow` | Apache-2.0 | Columnar track store | Approved, later |
 | `parquet` | Apache-2.0 | Track file format | Approved, later |
 | `sqlx` | MIT OR Apache-2.0 | Relational repositories | Approved, later |
@@ -53,6 +54,10 @@ locked version before release.
 | `plotters` | MIT | Figures, if `image` is not enough | Candidate, verify at lock |
 | `metrics` | MIT | Prometheus counters for FR-OP-03 | Candidate, verify at lock |
 | `tower` | MIT | Axum middleware and limits | Approved, later |
+
+- `realfft` also pulls `primal-check`, `strength_reduce` and `transpose` (all
+  MIT OR Apache-2.0); `num-complex` and `num-traits` were already in the lock
+  for `nalgebra`. `cargo deny check` covers them.
 
 ### Excluded or conditional
 
