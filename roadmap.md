@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-06
-- **Last recorded commit:** `304b625` (`develop`)
+- **Last recorded commit:** `536ee05` (`develop`)
 - **Current milestone:** M2 (DSP front end) in progress
 - **Release under construction:** v0 research core
 
@@ -50,7 +50,7 @@ row closes only when the detector (EVT-01) runs on top of it.
 | `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; DEM/geoid traits only |
 | `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
-| `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency; band-limit, rational resampling and DC removal |
+| `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Types only | `Event`, `EventFit`, `EventObservation`, `EventQuality` |
 | `adsb` | Types only | `TrackSource`, track model, linear interpolation |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
@@ -61,10 +61,9 @@ row closes only when the detector (EVT-01) runs on top of it.
 | `worker` | Stub | Heartbeat and graceful shutdown only |
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
-Quality gates on the current tree (recorded commit plus the uncommitted DSP-03
-work): `cargo fmt --check`, `clippy -D warnings` and the full test suite pass.
-168 tests pass (30 acoustics, 29 core-types, 44 dsp, 11 geodesy, 52 sim unit,
-2 sim golden). `cargo deny` and `cargo audit`
+Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
+the full test suite pass. 198 tests pass (30 acoustics, 29 core-types, 74 dsp,
+11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -229,11 +228,17 @@ Residual work:
 Read SDD section 5. The crate must stay synchronous and allocation-free inside
 per-sample/per-bin loops.
 
-- **DSP-01** `[ ]` Media decoder seam and FFmpeg adapter (FR-IN-01, T-1).
-  Define `MediaDecoder`; decode to mono PCM in a restricted subprocess; validate
-  sample rate, duration, finiteness and size; record `ffmpeg -version` in the
-  manifest. No FFmpeg libraries linked into the binary. FR-IN-01 ships in v1, but
-  the seam is needed for v0 real-clip work, so it may land early.
+- **DSP-01** `[x]` Media decoder seam and FFmpeg adapter (FR-IN-01, T-1).
+  `MediaDecoder` is the seam; `FfmpegDecoder` runs the codec tool as a child
+  process and never links its libraries. The child is asked for mono 32-bit float
+  WAV on stdout, its stderr is drained so it cannot block, and the returned WAV
+  is re-parsed and checked for sample format, channel count, rate, whole-sample
+  length, finiteness, duration and decoded size. File size is checked before the
+  process starts; the read is capped and the child is killed on timeout. The
+  first line of `ffmpeg -version` is carried on `DecodedAudio` for the manifest.
+  Tests: `media::tests::*`, including a real 0.5 s 48 kHz WAV decoded to 4 kHz
+  and rejected-clip, oversize, missing, unsupported and absent-decoder cases.
+  Upload and service limits remain API work under FR-IN-01.
 - **DSP-02** `[x]` Band-limit, decimate and remove DC (FR-IN-01).
   Rational `L/M` polyphase resampling with a Kaiser-windowed FIR: 1.5 kHz
   passband, 1.9 kHz stopband edge and 80 dB attenuation by default, with a
@@ -255,14 +260,27 @@ per-sample/per-bin loops.
   Added `realfft` (3.5, with `rustfft`), recorded in `docs/third_party.md`.
   FR-DM-01 stays in progress until EVT-01 detects on the z-map. Not yet
   committed; append the hash when it lands.
-- **DSP-04** `[ ]` Noise whitening (FR-DM-01).
-  Per-bin running median and MAD over time; z-map with roughly unit noise scale;
-  second pass masks detected events before re-estimating the noise. Property
-  test: white noise stays white.
-- **DSP-05** `[ ]` Ridge tracking ladder (FR-DM-01).
-  Level 1 per-frame peaks in the template corridor; level 2 Viterbi with a
-  smoothness cost; level 3 Kalman/RTS with per-frame variance. Use the lowest
-  level that works.
+- **DSP-04** `[x]` Noise whitening (FR-DM-01).
+  Per-bin median and MAD over a centred window of frames (15 by default,
+  `PROVISIONAL(G1)`), z values with roughly unit noise scale, and a MAD-to-sigma
+  factor of 1.4826. A sigma floor of 1e-3 of the bin median keeps a silent bin
+  from dividing by zero while still letting an onset register.
+  `whiten_with_mask` lets the detector exclude a loud pass on the second pass.
+  Median and MAD use in-place selection on reused buffers, so the frame loop
+  allocates nothing.
+  Tests: `whiten::tests::*`, covering pooled unit scale on white noise, a
+  transient tone far above the floor, the masked second pass, silence, the
+  sigma floor, determinism and rejected shapes.
+- **DSP-05** `[x]` Ridge tracking ladder (FR-DM-01).
+  `Corridor` supplies one inclusive bin range per frame. Level 1 takes the
+  per-frame peak; level 2 runs Viterbi with a quadratic step penalty and a
+  maximum step; level 3 runs a constant-velocity Kalman filter with an RTS
+  smoother and reports per-frame variance in bins squared. `track_ridge` keeps
+  the lowest level whose frames all clear `min_peak_z` and whose steps stay in
+  budget. All thresholds are `PROVISIONAL(G1)`.
+  Tests: `ridge::tests::*`, covering a clean ridge at level 1, a bright outlier
+  rejected by Viterbi, a faint ridge smoothed with variances, corridor
+  conversion and validation, and determinism.
 
 **Exit:** a simulated WAV is decoded, decimated, transformed, whitened and
 tracked; a known ridge is recovered within a stated tolerance; results are
@@ -563,11 +581,11 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **DSP-04** whitening and z-map on top of the new spectrogram.
-2. **DSP-05** ridge tracker.
-3. **DSP-01** decoder seam (needed before real media, can follow the PCM work).
-4. **EVT-01** detector, then **EVT-02** track-then-fit.
-5. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+1. **M2 exit test**: one integration test that runs decode → resample → STFT →
+   whitening → ridge on a simulated WAV and recovers a known curve within a
+   stated tolerance. This is the M2 exit criterion and the only M2 work left.
+2. **EVT-01** detector, then **EVT-02** track-then-fit.
+3. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.

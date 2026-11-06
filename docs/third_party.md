@@ -40,7 +40,7 @@ locked version before release.
 | `rustls` | Apache-2.0 OR MIT OR ISC | TLS for `reqwest` | Approved, later |
 | `levenberg-marquardt` | MIT | Nonlinear least squares, with an in-house fallback | Approved, verify at lock |
 | `statrs` | MIT | Chi-square and distribution functions | Approved, later |
-| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim` |
+| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim` and `dsp` |
 | `proptest` | MIT OR Apache-2.0 | Property tests | Approved, later |
 | `rand` | MIT OR Apache-2.0 | Seeded simulator randomness | In `sim` (0.9) |
 | `rand_chacha` | MIT OR Apache-2.0 | Seeded ChaCha20 generator for reproducible noise and feeds | In `sim` (0.9) |
