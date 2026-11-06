@@ -102,4 +102,94 @@ pub enum DspError {
         /// Number of values supplied.
         actual: usize,
     },
+    /// A frequency corridor did not cover exactly the map's frames.
+    #[error("corridor covers {actual} frames but the map has {expected}")]
+    CorridorMismatch {
+        /// Number of frames the map has.
+        expected: usize,
+        /// Number of frames the corridor covers.
+        actual: usize,
+    },
+    /// A corridor bound was reversed or past the last bin.
+    #[error("corridor bounds {low}..={high} are invalid for {bins} bins")]
+    InvalidCorridor {
+        /// Lower bin bound.
+        low: usize,
+        /// Upper bin bound.
+        high: usize,
+        /// Number of bins in the map.
+        bins: usize,
+    },
+    /// A variance, cost or similar scalar was negative or not finite.
+    #[error("value {0} must be finite and non-negative")]
+    InvalidVariance(f64),
+    /// A frequency range was crossed or not finite.
+    #[error("frequency range {low_hz}..{high_hz} Hz is not usable")]
+    InvalidFrequencyRange {
+        /// Lower edge in hertz.
+        low_hz: f64,
+        /// Upper edge in hertz.
+        high_hz: f64,
+    },
+    /// The media file is missing or not a regular file.
+    #[error("media file is missing or is not a regular file")]
+    MediaNotFound,
+    /// The media file is larger than the configured cap.
+    #[error("media file is {bytes} bytes, above the limit of {limit}")]
+    MediaTooLarge {
+        /// Actual size in bytes.
+        bytes: u64,
+        /// Configured limit in bytes.
+        limit: u64,
+    },
+    /// The decoder program could not be started.
+    #[error("the media decoder could not be started")]
+    DecoderUnavailable,
+    /// The decoder exceeded its wall-clock limit.
+    #[error("the media decoder exceeded its {limit_s} s limit")]
+    DecoderTimeout {
+        /// Configured limit in seconds.
+        limit_s: f64,
+    },
+    /// The decoder exited unsuccessfully.
+    #[error("the media decoder exited with status {code:?}")]
+    DecoderFailed {
+        /// Process exit code, when the process exited normally.
+        code: Option<i32>,
+    },
+    /// The decoder returned more audio than the duration limit allows.
+    #[error("the media decoder returned more than {limit_bytes} bytes")]
+    DecoderOutputTooLarge {
+        /// Configured output limit in bytes.
+        limit_bytes: usize,
+    },
+    /// The decoded stream is not audio the analyser can use.
+    #[error("decoded media is unusable: {problem:?}")]
+    InvalidMediaOutput {
+        /// What was wrong with the stream.
+        problem: MediaProblem,
+    },
+    /// The decoded clip is longer than the configured limit.
+    #[error("decoded clip is {duration_s} s, above the limit of {limit_s} s")]
+    AudioTooLong {
+        /// Decoded duration in seconds.
+        duration_s: f64,
+        /// Configured limit in seconds.
+        limit_s: f64,
+    },
+}
+
+/// What the decoder returned that the analyser cannot use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaProblem {
+    /// The byte stream was not a usable WAV.
+    Header,
+    /// The sample format was not 32-bit float.
+    SampleFormat,
+    /// The stream was not mono.
+    Channels,
+    /// The sample rate was not the requested rate.
+    SampleRate,
+    /// The data chunk was not a whole number of samples.
+    DataLength,
 }
