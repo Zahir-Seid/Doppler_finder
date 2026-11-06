@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-06
-- **Last recorded commit:** `14f8741` (`develop`)
+- **Last recorded commit:** `c589488` (`develop`)
 - **Current milestone:** M3 (event measurement); M2 closed
 - **Release under construction:** v0 research core
 
