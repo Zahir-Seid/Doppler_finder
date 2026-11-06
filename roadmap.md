@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-06
-- **Last recorded commit:** `536ee05` (`develop`)
+- **Last recorded commit:** `14f8741` (`develop`)
 - **Current milestone:** M2 (DSP front end) in progress
 - **Release under construction:** v0 research core
 
@@ -238,7 +238,7 @@ per-sample/per-bin loops.
   first line of `ffmpeg -version` is carried on `DecodedAudio` for the manifest.
   Tests: `media::tests::*`, including a real 0.5 s 48 kHz WAV decoded to 4 kHz
   and rejected-clip, oversize, missing, unsupported and absent-decoder cases.
-  Upload and service limits remain API work under FR-IN-01.
+  Upload and service limits remain API work under FR-IN-01. Commit `536ee05`.
 - **DSP-02** `[x]` Band-limit, decimate and remove DC (FR-IN-01).
   Rational `L/M` polyphase resampling with a Kaiser-windowed FIR: 1.5 kHz
   passband, 1.9 kHz stopband edge and 80 dB attenuation by default, with a
@@ -258,8 +258,8 @@ per-sample/per-bin loops.
   amplitude calibration against a known sine, recovery of a frequency 0.2 bin
   off centre, frame times, zero-padding, determinism and rejected geometry.
   Added `realfft` (3.5, with `rustfft`), recorded in `docs/third_party.md`.
-  FR-DM-01 stays in progress until EVT-01 detects on the z-map. Not yet
-  committed; append the hash when it lands.
+  FR-DM-01 stays in progress until EVT-01 detects on the z-map. Commit
+  `62b6e0d`.
 - **DSP-04** `[x]` Noise whitening (FR-DM-01).
   Per-bin median and MAD over a centred window of frames (15 by default,
   `PROVISIONAL(G1)`), z values with roughly unit noise scale, and a MAD-to-sigma
