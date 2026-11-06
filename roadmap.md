@@ -4,8 +4,8 @@ Execution plan for the implementing agent(s). This file orders the work; it does
 not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
-- **Last updated:** 2026-11-05
-- **Last recorded commit:** `5292f9f` (`develop`)
+- **Last updated:** 2026-11-06
+- **Last recorded commit:** `304b625` (`develop`)
 - **Current milestone:** M2 (DSP front end) in progress
 - **Release under construction:** v0 research core
 
@@ -30,14 +30,17 @@ Read first, in this order:
 | --- | ---: |
 | Done | 2 |
 | Partial | 7 |
+| In progress | 1 |
 | Scaffolded | 2 |
-| Not started | 37 |
+| Not started | 36 |
 | Deferred to v3 | 2 |
 
 For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 6 partial,
-16 not started**. The two done rows are `FR-SIM-01` (synthesis and truth) and
-`FR-SIM-03` (Cramér–Rao bound). The partial rows are `FR-IN-01`, `FR-DM-03`,
-`FR-DA-03`, `FR-OUT-04`, `FR-SIM-02`, `FR-SIM-04` and `NFR-04`.
+1 in progress, 15 not started**. The two done rows are `FR-SIM-01` (synthesis
+and truth) and `FR-SIM-03` (Cramér–Rao bound). The partial rows are `FR-IN-01`,
+`FR-DM-03`, `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02`, `FR-SIM-04` and `NFR-04`.
+`FR-DM-01` is in progress: the windowed, zero-padded spectrogram exists, but the
+row closes only when the detector (EVT-01) runs on top of it.
 
 ### 1.2 Code state
 
@@ -47,7 +50,7 @@ For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 6 partial,
 | `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; DEM/geoid traits only |
 | `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
-| `dsp` | Partial | Window and STFT geometry; band-limit, rational resampling and DC removal |
+| `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency; band-limit, rational resampling and DC removal |
 | `events` | Types only | `Event`, `EventFit`, `EventObservation`, `EventQuality` |
 | `adsb` | Types only | `TrackSource`, track model, linear interpolation |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
@@ -58,9 +61,10 @@ For **v0** (24 tracked rows, including gates G1 and G2): **2 done, 6 partial,
 | `worker` | Stub | Heartbeat and graceful shutdown only |
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
-Quality gates at the recorded commit: `cargo fmt --check`, `clippy -D warnings`
-and the full test suite pass. 145 tests pass (30 acoustics, 29 core-types,
-21 dsp, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
+Quality gates on the current tree (recorded commit plus the uncommitted DSP-03
+work): `cargo fmt --check`, `clippy -D warnings` and the full test suite pass.
+168 tests pass (30 acoustics, 29 core-types, 44 dsp, 11 geodesy, 52 sim unit,
+2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -238,9 +242,19 @@ per-sample/per-bin loops.
   passband tones, stopband attenuation, aliasing probes, high-pass rejection of
   sub-audio tones, DC removal, determinism and rejected configurations.
   Commit `5292f9f`.
-- **DSP-03** `[ ]` Real STFT (FR-DM-01).
-  Kaiser-windowed, 75% overlap, frame geometry from `StftConfig`, zero-padding,
-  parabolic peak interpolation for sub-bin frequency. Add `realfft`.
+- **DSP-03** `[x]` Real STFT (FR-DM-01).
+  Kaiser-windowed (`beta = 7.86`, about 80 dB sidelobes), 75% overlap, frame
+  geometry from `StftConfig`, zero-padding to the next power of two at or above
+  twice the frame length, magnitudes calibrated as an amplitude spectrum and
+  parabolic log-magnitude interpolation for sub-bin frequency. One FFT plan and
+  its scratch buffers are reused across frames; `StftConfig::survey(rate)` fixes
+  the 1 s survey window.
+  Tests: `stft::tests::*` and `window::tests::*` in `crates/dsp`, covering
+  amplitude calibration against a known sine, recovery of a frequency 0.2 bin
+  off centre, frame times, zero-padding, determinism and rejected geometry.
+  Added `realfft` (3.5, with `rustfft`), recorded in `docs/third_party.md`.
+  FR-DM-01 stays in progress until EVT-01 detects on the z-map. Not yet
+  committed; append the hash when it lands.
 - **DSP-04** `[ ]` Noise whitening (FR-DM-01).
   Per-bin running median and MAD over time; z-map with roughly unit noise scale;
   second pass masks detected events before re-estimating the noise. Property
@@ -549,12 +563,11 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **DSP-03** real STFT with interpolation.
-2. **DSP-04** whitening and z-map.
-3. **DSP-05** ridge tracker.
-4. **DSP-01** decoder seam (needed before real media, can follow the PCM work).
-5. **EVT-01** detector, then **EVT-02** track-then-fit.
-6. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+1. **DSP-04** whitening and z-map on top of the new spectrogram.
+2. **DSP-05** ridge tracker.
+3. **DSP-01** decoder seam (needed before real media, can follow the PCM work).
+4. **EVT-01** detector, then **EVT-02** track-then-fit.
+5. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.
