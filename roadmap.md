@@ -28,23 +28,25 @@ Read first, in this order:
 
 | Status | Count |
 | --- | ---: |
-| Done | 5 |
+| Done | 6 |
 | Partial | 7 |
 | In progress | 0 |
 | Scaffolded | 2 |
-| Not started | 34 |
+| Not started | 33 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **5 done, 6 partial,
-0 in progress, 13 not started**. The done rows are `FR-SIM-01` (synthesis and
+For **v0** (24 tracked rows, including gates G1 and G2): **6 done, 6 partial,
+0 in progress, 12 not started**. The done rows are `FR-SIM-01` (synthesis and
 truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
-(track-then-fit estimation) and `FR-DM-04` (harmonics combined coherently in the
-fit). The partial rows are `FR-IN-01`, `FR-DM-03`, `FR-DA-03`, `FR-OUT-04`,
-`FR-SIM-02`, `FR-SIM-04` and `NFR-04`. `FR-DM-01` closed with EVT-01 and
-`FR-DM-02`/`FR-DM-04` with EVT-02: the detector runs on the whitened z-map and
-the joint fit recovers the pass with a scaled covariance and profile intervals,
-while the M3 exit test still has to show a pass travelling from audio through
-detection to fit.
+(track-then-fit estimation), `FR-DM-04` (harmonics combined coherently in the
+fit) and `FR-DM-05` (direct estimation on faint events). The partial rows are
+`FR-IN-01`, `FR-DM-03`, `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02`, `FR-SIM-04` and
+`NFR-04`. `FR-DM-01` closed with EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02 and
+`FR-DM-05` with EVT-03: the detector runs on the whitened z-map, the joint fit
+recovers the pass with a scaled covariance and profile intervals, and the
+direct estimator recovers the curve from a faint map with no ridge input. The
+M3 exit test still has to show a pass travelling from audio through detection
+to fit.
 
 ### 1.2 Code state
 
@@ -55,7 +57,7 @@ detection to fit.
 | `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
-| `events` | Partial | Detector over the z-map and joint track-then-fit estimator; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
+| `events` | Partial | Detector over the z-map, joint track-then-fit estimator and direct power estimator; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
 | `adsb` | Types only | `TrackSource`, track model, linear interpolation |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
@@ -66,8 +68,8 @@ detection to fit.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 217 tests pass (30 acoustics, 29 core-types, 75 dsp,
-18 events, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
+the full test suite pass. 221 tests pass (30 acoustics, 29 core-types, 75 dsp,
+22 events, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -308,7 +310,7 @@ deterministic.
 
 ### M3 — Event measurement
 
-**Status:** `[~]` in progress; EVT-01 and EVT-02 are done, EVT-03 is next.
+**Status:** `[~]` in progress; EVT-01 to EVT-03 are done, EVT-04 is next.
 
 Read SDD section 5. `events` may depend on `dsp`, `acoustics` and `core-types`,
 never on `search` or `pipeline`.
@@ -342,9 +344,17 @@ never on `search` or `pipeline`.
   outlier, covariance inflation above the stated noise, profile intervals that
   bracket the estimate, recovery from a poor detector seed, determinism, input
   validation, harmonic zero and ridge conversion.
-- **EVT-03** `[ ]` Direct parametric estimator (FR-DM-05).
+- **EVT-03** `[x]` Direct parametric estimator (FR-DM-05). Commit `59359cb`.
   Maximize whitened power sampled along the model curve, per harmonic and frame;
-  Hessian covariance; use on faint events where ridges fail.
+  Hessian covariance; use on faint events where ridges fail. The z values of
+  the two bins around the model frequency are interpolated linearly and squared,
+  giving the generalized likelihood ratio under exponential noise. A
+  deterministic Nelder–Mead simplex handles the speed/distance valley that
+  coordinate steps miss, and `(-H)⁻¹` gives the covariance at the optimum. The
+  report reuses `FitReport` with `FitMethod::Direct`.
+  Tests: `direct::tests::*`, covering recovery of the fitted curve from a faint
+  map with no ridge, an objective that prefers the true pass over a detector
+  seed, determinism, and rejected maps, harmonic lists and seeds.
 - **EVT-04** `[ ]` Quality score and gate (FR-DM-06).
   Combine curve SNR, harmonic count, residual autocorrelation and covariance
   inflation. Drop low-scoring events and report why.
@@ -622,7 +632,7 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **EVT-03** direct estimator. EVT-01 and EVT-02 are done.
+1. **EVT-04** quality score and gate. EVT-01 to EVT-03 are done.
 2. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
 3. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
