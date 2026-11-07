@@ -4,7 +4,7 @@ FR-IN-02,M,v0,10.2,search,T-IN-02,not_started,planned
 FR-IN-03,S,v0,6.2,search,T-IN-03,not_started,planned
 FR-DM-01,M,v0,5.3,events;dsp,T-DM-01,done,passing
 FR-DM-02,M,v0,5.5,events,T-DM-02,done,passing
-FR-DM-03,M,v0,4,acoustics,T-DM-03,partial,passing
+FR-DM-03,M,v0,4,acoustics,T-DM-03,done,passing
 FR-DM-04,S,v0,4;5.5,events,T-DM-04,done,passing
 FR-DM-05,S,v0,5.5,events,T-DM-05,done,passing
 FR-DM-06,M,v0,5.6,events,T-DM-06,done,passing
