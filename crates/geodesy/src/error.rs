@@ -24,4 +24,10 @@ pub enum GeodesyError {
     /// A geoid grid is malformed or has inconsistent metadata.
     #[error("malformed geoid grid: {0}")]
     MalformedGeoidGrid(String),
+    /// A terrain grid is malformed or has inconsistent metadata.
+    #[error("malformed DEM grid: {0}")]
+    MalformedDem(String),
+    /// An observer ear height is negative or not finite.
+    #[error("observer ear height {0} m must be finite and non-negative")]
+    InvalidEarHeight(f64),
 }

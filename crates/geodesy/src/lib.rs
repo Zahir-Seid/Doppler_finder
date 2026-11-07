@@ -8,9 +8,11 @@ pub mod ellipsoid;
 pub mod enu;
 pub mod error;
 pub mod geoid;
+pub mod grid;
 
-pub use dem::ElevationModel;
+pub use dem::{DemGrid, DemMetadata, ElevationModel, SrtmTile, observer_height_m};
 pub use ellipsoid::{Ecef, Ellipsoid};
 pub use enu::{Enu, LocalFrame};
 pub use error::GeodesyError;
-pub use geoid::{GeoidGeometry, GeoidGrid, GeoidMetadata, GeoidModel};
+pub use geoid::{GeoidGrid, GeoidMetadata, GeoidModel};
+pub use grid::GridGeometry;

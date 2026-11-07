@@ -8,7 +8,7 @@
 #![allow(clippy::expect_used)]
 
 use core_types::{LatLon, Metres};
-use geodesy::{GeodesyError, GeoidGeometry, GeoidGrid, GeoidMetadata, GeoidModel};
+use geodesy::{GeodesyError, GeoidGrid, GeoidMetadata, GeoidModel, GridGeometry};
 
 const FIXTURE: &str = include_str!("fixtures/egm96_uk_3deg.txt");
 
@@ -128,7 +128,7 @@ fn fr_da_02_metadata_records_the_model_version_and_source() {
 fn fr_da_02_malformed_grids_are_rejected() {
     let metadata = fixture().metadata().clone();
     let values = vec![0.0; 9];
-    let geometry = GeoidGeometry {
+    let geometry = GridGeometry {
         lat_min_deg: 0.0,
         lon_min_deg: 0.0,
         lat_step_deg: 1.0,
@@ -151,7 +151,7 @@ fn fr_da_02_malformed_grids_are_rejected() {
     assert!(matches!(
         GeoidGrid::from_parts(
             metadata.clone(),
-            GeoidGeometry {
+            GridGeometry {
                 lat_step_deg: 0.0,
                 ..geometry
             },
