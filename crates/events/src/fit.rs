@@ -1437,8 +1437,8 @@ mod tests {
     };
     use crate::detect::EventHypothesis;
     use crate::error::EventError;
-    use acoustics::StraightPass;
-    use core_types::{AudioSeconds, EventId, Hertz};
+    use acoustics::{StraightPass, observed_frequency_hz};
+    use core_types::{AudioSeconds, EventId, Hertz, Seconds};
 
     const SOUND_SPEED: f64 = 343.0;
     const HEARD_AT: f64 = 5.0;
@@ -1493,6 +1493,39 @@ mod tests {
         pass.received_frequency(Hertz(fundamental), harmonic, received, SOUND_SPEED)
             .expect("valid geometry")
             .0
+    }
+
+    /// Frequency of a harmonic under the rejected delayed-copy control, hertz.
+    ///
+    /// The radial speed is evaluated at the reception-time offset instead of
+    /// the emission time that satisfies the light-time equation, which is the
+    /// mistake FR-DM-03 forbids.
+    fn delayed_copy_hz(
+        fundamental: f64,
+        speed: f64,
+        closest: f64,
+        heard_at: f64,
+        harmonic: u32,
+        at: f64,
+    ) -> f64 {
+        let pass = StraightPass {
+            closest_approach_m: closest,
+            speed_m_per_s: speed,
+        };
+        let received = pass
+            .received_offset_from_heard_offset(at - heard_at, SOUND_SPEED)
+            .expect("valid geometry")
+            .0;
+        let radial = pass
+            .radial_speed(Seconds(received))
+            .expect("valid geometry");
+        observed_frequency_hz(
+            Hertz(fundamental * f64::from(harmonic)),
+            radial,
+            SOUND_SPEED,
+        )
+        .expect("valid geometry")
+        .0
     }
 
     /// A track on the true model with seeded Gaussian frequency noise.
@@ -1590,6 +1623,52 @@ mod tests {
         assert!(
             joint_sigma < single_sigma,
             "joint sigma {joint_sigma} should beat single {single_sigma}"
+        );
+    }
+
+    #[test]
+    fn fr_dm_03_emission_time_model_beats_a_delayed_copy_control() {
+        let mut state = 0x0ddb_a11d_u32;
+        let tracks = vec![
+            make_track(1, 41, 0.05, &mut state),
+            make_track(2, 41, 0.05, &mut state),
+        ];
+        let report = fit_event(&tracks, event_id(), &detector_seed(), &config()).expect("fit");
+        let fundamental = report.fit.fundamental_hz.0;
+        let speed = report.fit.speed_m_per_s;
+        let closest = report.fit.closest_m.0;
+        let heard_at = report.fit.heard_at.0;
+
+        let mut emission_sum = 0.0_f64;
+        let mut delayed_sum = 0.0_f64;
+        for track in &tracks {
+            for point in &track.points {
+                let at = point.heard_at.0;
+                let emission = model_hz(fundamental, speed, closest, heard_at, track.harmonic, at);
+                let delayed =
+                    delayed_copy_hz(fundamental, speed, closest, heard_at, track.harmonic, at);
+                let variance = point.frequency_variance_hz2;
+                emission_sum += (point.frequency_hz.0 - emission).powi(2) / variance;
+                delayed_sum += (point.frequency_hz.0 - delayed).powi(2) / variance;
+            }
+        }
+
+        let residual = (emission_sum - report.chi_squared).abs();
+        assert!(
+            residual <= 1.0e-6 * report.chi_squared.max(1.0),
+            "emission sum {emission_sum} vs reported {}",
+            report.chi_squared
+        );
+        assert!(
+            delayed_sum > 10.0 * emission_sum,
+            "delayed copy {delayed_sum} should be far worse than emission time {emission_sum}"
+        );
+        // The control is not a near miss: its misfit is hundreds of times the
+        // stated noise, while the emission-time fit sits near the noise floor.
+        assert!(
+            delayed_sum > 100.0 * report.degrees_of_freedom as f64,
+            "delayed copy {delayed_sum} vs dof {}",
+            report.degrees_of_freedom
         );
     }
 
