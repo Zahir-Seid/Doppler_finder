@@ -11,6 +11,7 @@
 //! The detector only proposes hypotheses. It does not fit, weight or judge
 //! them; that is FR-DM-02 and FR-DM-06.
 
+use acoustics::StraightPass;
 use core_types::{AudioSeconds, Hertz};
 use dsp::ZMap;
 
@@ -105,18 +106,34 @@ impl EventHypothesis {
         -(self.speed_m_per_s * along_m) / range_m
     }
 
-    /// Phase Doppler frequency received at `t_rel_s` seconds from closest
-    /// approach, in hertz (`f0 c / (c - v_r)`).
+    /// Phase Doppler frequency received at `t_rel_s` seconds from the heard
+    /// closest approach, in hertz.
+    ///
+    /// Solves the light-time equation and evaluates `f0 c / (c + v_r)` at the
+    /// emission time, matching the estimator (SDD section 4, FR-DM-03). Using
+    /// the reception time here would shift the template by several bins and
+    /// lower the detector's score on physical audio.
     ///
     /// Returns `None` where the model has no finite answer, which the detector
     /// treats as an unusable hypothesis.
     pub fn observed_hz(&self, t_rel_s: f64, sound_speed_m_per_s: f64) -> Option<f64> {
-        let radial_m_per_s = self.radial_velocity_m_per_s(t_rel_s);
-        let denominator = sound_speed_m_per_s - radial_m_per_s;
-        if !denominator.is_finite() || denominator <= 0.0 {
-            return None;
-        }
-        let frequency_hz = self.fundamental_hz.0 * sound_speed_m_per_s / denominator;
+        let pass = StraightPass {
+            closest_approach_m: self.closest_m,
+            speed_m_per_s: self.speed_m_per_s,
+        };
+        let received_offset_s = pass
+            .received_offset_from_heard_offset(t_rel_s, sound_speed_m_per_s)
+            .ok()?
+            .0;
+        let frequency_hz = pass
+            .received_frequency(
+                self.fundamental_hz,
+                1,
+                received_offset_s,
+                sound_speed_m_per_s,
+            )
+            .ok()?
+            .0;
         if frequency_hz.is_finite() {
             Some(frequency_hz)
         } else {
@@ -583,6 +600,35 @@ mod tests {
             detection.null_maps >= 3,
             "null maps {}",
             detection.null_maps
+        );
+    }
+
+    #[test]
+    fn fr_dm_03_detector_template_solves_the_emission_time() {
+        // A fast, close pass makes the reception-time approximation visibly
+        // different: over two seconds it moves the template by many hertz,
+        // while the emission-time model stays on the physical curve.
+        let fast = EventHypothesis {
+            heard_at: AudioSeconds(0.0),
+            fundamental_hz: Hertz(200.0),
+            speed_m_per_s: 150.0,
+            closest_m: 200.0,
+        };
+        for t_rel in [-2.0, 2.0] {
+            let modelled = fast.observed_hz(t_rel, SOUND_SPEED).expect("model");
+            let delayed = fast.fundamental_hz.0 * SOUND_SPEED
+                / (SOUND_SPEED - fast.radial_velocity_m_per_s(t_rel));
+            assert!(
+                (modelled - delayed).abs() > 1.0,
+                "at {t_rel} s the template {modelled} matched the delayed copy {delayed}"
+            );
+        }
+        // At the heard closest approach the emitted and received offsets agree,
+        // so the template returns the emitted fundamental.
+        let at_closest = fast.observed_hz(0.0, SOUND_SPEED).expect("model");
+        assert!(
+            (at_closest - fast.fundamental_hz.0).abs() < 1.0e-9,
+            "template at closest {at_closest}"
         );
     }
 
