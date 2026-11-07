@@ -90,6 +90,10 @@ and redistribution policy in the run manifest (NFR-04, NFR-06).
 | Author's own recordings | Written consent from the author | Real-clip calibration | Planned |
 | Phone-video samples | Contributor consent and anonymized location | Codec and detector tests | Planned |
 
+`crates/geodesy/tests/fixtures/egm96_uk_3deg.txt` is the only dataset committed
+so far. It is test-only, and `docs/geoid-grid-format.md` records its extraction,
+format, source hash and licence.
+
 ## Copied code and reference repositories
 
 - **None.** No code has been copied into this repository.

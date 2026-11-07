@@ -9,7 +9,7 @@ FR-DM-04,S,v0,4;5.5,events,T-DM-04,done,passing
 FR-DM-05,S,v0,5.5,events,T-DM-05,done,passing
 FR-DM-06,M,v0,5.6,events,T-DM-06,done,passing
 FR-DA-01,M,v0,9.2,adsb,T-DA-01,not_started,planned
-FR-DA-02,M,v0,6.1;7,geodesy,T-DA-02,not_started,planned
+FR-DA-02,M,v0,6.1;7,geodesy,T-DA-02,partial,passing
 FR-DA-03,S,v0,4,acoustics,T-DA-03,partial,passing
 FR-DA-04,S,v0,9.1;9.2,adsb,T-DA-04,not_started,planned
 FR-SL-01,M,v0,6.2,search,T-SL-01,not_started,planned
