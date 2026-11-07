@@ -4,9 +4,9 @@ Execution plan for the implementing agent(s). This file orders the work; it does
 not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
-- **Last updated:** 2026-11-06
-- **Last recorded commit:** `c589488` (`develop`)
-- **Current milestone:** M3 (event measurement); M2 closed
+- **Last updated:** 2026-11-07
+- **Last recorded commit:** `4041628` (`develop`)
+- **Current milestone:** M4 (ADS-B, terrain and atmosphere); M3 closed
 - **Release under construction:** v0 research core
 
 Read first, in this order:
@@ -49,8 +49,8 @@ whitened z-map, the joint fit recovers the pass with a scaled covariance and
 profile intervals, the direct estimator recovers the curve from a faint map
 with no ridge input, the quality gate drops weak events with recorded reasons,
 and a regression pins the emission-time model against a delayed-copy control.
-The M3 end-to-end exit test still has to show a pass travelling from audio
-through detection and fit to a quality-scored record.
+The M3 end-to-end exit test now drives a simulated pass from audio through
+whitening, detection and direct fitting to a retained quality assessment.
 
 ### 1.2 Code state
 
@@ -72,8 +72,8 @@ through detection and fit to a quality-scored record.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 227 tests pass (30 acoustics, 29 core-types, 75 dsp,
-28 events, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
+the full test suite pass. 230 tests pass (30 acoustics, 29 core-types, 75 dsp,
+31 events, 11 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -314,8 +314,7 @@ deterministic.
 
 ### M3 — Event measurement
 
-**Status:** `[~]` in progress; EVT-01 to EVT-05 are done, the end-to-end exit
-test remains.
+**Status:** `[x]` done; EVT-01 to EVT-05 and the end-to-end exit test pass.
 
 Read SDD section 5. `events` may depend on `dsp`, `acoustics` and `core-types`,
 never on `search` or `pipeline`.
@@ -385,10 +384,20 @@ never on `search` or `pipeline`.
   keeps its direct curve comparison green.
   Tests: `fit::tests::fr_dm_03_emission_time_model_beats_a_delayed_copy_control`
   and `acoustics::doppler` curve tests.
+- **M3 exit** `[x]` Audio-to-score end-to-end test. Commit `4041628`; detector
+  template fix `c813098`. `crates/events/tests/m3_exit.rs` synthesises a
+  two-harmonic pass at the analysis rate on the emission-time curve, whitens the
+  survey map, detects it, fits it directly and scores it. The detector must
+  recover the grid truth, the fitted curve must stay inside one bin, the
+  covariance diagonals must be usable and the event must be retained; a
+  noise-only recording must be rejected.
+  Tests: `m3_exit_a_simulated_pass_is_detected_fitted_and_scored` and
+  `m3_exit_noise_alone_is_not_detected`.
 
 **Exit:** a simulated pass is detected and fitted; recovered parameters agree
 with truth; covariance is sane against the CRLB; low-SNR events are down-weighted
-or dropped; no manual tracing.
+or dropped; no manual tracing. Covered by `crates/events/tests/m3_exit.rs`
+(commit `4041628`).
 
 ### M4 — ADS-B, terrain and atmosphere
 
@@ -656,10 +665,8 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **M3 end-to-end exit test**: a simulated pass from audio through detection,
-   fit and quality score. EVT-01 to EVT-05 are done.
-2. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
-3. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
+1. **GEO-01/GEO-02** and **ADSB-01** in parallel if a second agent is free.
+2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
