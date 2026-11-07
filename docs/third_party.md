@@ -84,7 +84,7 @@ and redistribution policy in the run manifest (NFR-04, NFR-06).
 | OpenSky Network | Open academic use, attribution; verify current terms for redistribution | ADS-B tracks | Planned, terms must be confirmed |
 | adsb.lol | Open data; verify the current ODbL or equivalent terms | ADS-B tracks | Planned, terms must be confirmed |
 | SRTM or Copernicus DEM | Public domain or open with attribution; verify the chosen product | Terrain | Planned |
-| EGM96 / EGM2008 | Public domain geoid grid | Geoid correction | Planned |
+| EGM96 / EGM2008 | Public domain geoid grid (NGA) | Geoid correction | EGM96 15-minute subset in `crates/geodesy/tests/fixtures/egm96_uk_3deg.txt`, extracted 2026-11-07 from PROJ `egm96_15.gtx` (SHA-256 `c02a6eb70a7a78efebe5adf3ade626eb75390e170bb8b3f36136a2c28f5326a0`); format in `docs/geoid-grid-format.md` |
 | Natural Earth | Public domain | Land mask and map background | Planned |
 | Dove's Guide for Church Bell Ringers | Reference only; do not copy the dataset without permission | Grid-hum context | Reference only |
 | Author's own recordings | Written consent from the author | Real-clip calibration | Planned |

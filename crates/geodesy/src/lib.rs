@@ -13,4 +13,4 @@ pub use dem::ElevationModel;
 pub use ellipsoid::{Ecef, Ellipsoid};
 pub use enu::{Enu, LocalFrame};
 pub use error::GeodesyError;
-pub use geoid::GeoidModel;
+pub use geoid::{GeoidGeometry, GeoidGrid, GeoidMetadata, GeoidModel};

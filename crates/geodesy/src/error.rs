@@ -21,4 +21,7 @@ pub enum GeodesyError {
         /// Requested longitude in degrees.
         lon_deg: f64,
     },
+    /// A geoid grid is malformed or has inconsistent metadata.
+    #[error("malformed geoid grid: {0}")]
+    MalformedGeoidGrid(String),
 }
