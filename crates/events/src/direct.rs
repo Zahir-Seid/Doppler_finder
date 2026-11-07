@@ -27,6 +27,7 @@ use crate::fit::{
     EventFit, FitMethod, FitReport, PARAMETER_COUNT, Parameters, correlation, covariance_array,
     predicted_hz_at,
 };
+use crate::sampling;
 
 /// Settings for the direct parametric estimator.
 ///
@@ -134,7 +135,6 @@ pub fn fit_event_direct(
         map,
         harmonics: &harmonics,
         config,
-        bins: map.bin_count(),
         width_hz: map.config().bin_width_hz(),
         times: map.frame_times_s(),
     };
@@ -166,6 +166,7 @@ pub fn fit_event_direct(
         speed_closest_correlation,
         speed_interval: None,
         closest_interval: None,
+        residual_autocorrelation: 0.0,
         iterations: optimum.iterations,
         observations: samples,
         harmonics,
@@ -232,7 +233,6 @@ struct DirectProblem<'a> {
     map: &'a ZMap,
     harmonics: &'a [u32],
     config: &'a DirectConfig,
-    bins: usize,
     width_hz: f64,
     times: &'a [f64],
 }
@@ -245,22 +245,7 @@ impl DirectProblem<'_> {
     /// a curve that leaves the measured band is rejected rather than scored on
     /// a truncated set of samples.
     fn power_at(&self, frame: usize, frequency_hz: f64) -> Option<f64> {
-        if !frequency_hz.is_finite() || frequency_hz <= 0.0 {
-            return None;
-        }
-        let coordinate = frequency_hz / self.width_hz;
-        let last_index = self.bins.checked_sub(1)?;
-        let last = last_index as f64;
-        if !coordinate.is_finite() || coordinate < 0.0 || coordinate > last {
-            return None;
-        }
-        let lower = coordinate.floor();
-        let fraction = coordinate - lower;
-        let lower_index = lower as usize;
-        let upper_index = lower_index.saturating_add(1).min(last_index);
-        let lower_z = f64::from(self.map.value(frame, lower_index)?);
-        let upper_z = f64::from(self.map.value(frame, upper_index)?);
-        let z = lower_z + (upper_z - lower_z) * fraction;
+        let z = sampling::interpolated_z(self.map, frame, frequency_hz)?;
         Some(z * z)
     }
 
@@ -743,7 +728,6 @@ mod tests {
             map: &map,
             harmonics: &harmonics,
             config: &config,
-            bins: map.bin_count(),
             width_hz: map.config().bin_width_hz(),
             times: map.frame_times_s(),
         };

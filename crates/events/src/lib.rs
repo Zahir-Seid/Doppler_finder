@@ -9,6 +9,7 @@ pub mod direct;
 pub mod error;
 pub mod fit;
 pub mod quality;
+pub(crate) mod sampling;
 
 pub use detect::{Detection, DetectorConfig, EventHypothesis, GridRange, detect};
 pub use direct::{DirectConfig, fit_event_direct};
@@ -17,4 +18,4 @@ pub use fit::{
     Event, EventFit, EventObservation, FitConfig, FitMethod, FitReport, HarmonicTrack,
     ProfileInterval, TrackPoint, fit_event, fit_event_from_seeds, multi_start_seeds,
 };
-pub use quality::EventQuality;
+pub use quality::{EventQuality, QualityAssessment, QualityConfig, QualityReason, assess};

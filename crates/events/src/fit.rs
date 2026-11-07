@@ -363,6 +363,12 @@ pub struct FitReport {
     /// one for the direct estimator, whose Hessian is already the observed
     /// information.
     pub covariance_scale: f64,
+    /// Lag-one autocorrelation of the weighted residuals within each harmonic,
+    /// averaged over harmonics. Near zero means the residuals are white; large
+    /// positive values mean structure is left unexplained, which the quality
+    /// gate penalizes (SDD section 5.6). Always zero for [`FitMethod::Direct`],
+    /// which maximizes power rather than fitting residuals.
+    pub residual_autocorrelation: f64,
     /// Objective at the optimum, lower is better: the Huber cost for
     /// [`FitMethod::TrackThenFit`] and the negative summed power for
     /// [`FitMethod::Direct`].
@@ -586,6 +592,7 @@ pub fn fit_event_from_seeds(
     }
     let covariance = inverse * covariance_scale;
     let speed_closest_correlation = correlation(&covariance)?;
+    let residual_autocorrelation = residual_autocorrelation(&observations, &evaluation);
 
     let (speed_interval, closest_interval) =
         if speed_closest_correlation.abs() >= config.profile_correlation_threshold {
@@ -626,6 +633,7 @@ pub fn fit_event_from_seeds(
         covariance_scale,
         robust_cost: best.cost,
         speed_closest_correlation,
+        residual_autocorrelation,
         speed_interval,
         closest_interval,
         iterations: best.iterations,
@@ -886,6 +894,59 @@ fn evaluate(
         residuals,
         weights,
     })
+}
+
+/// Lag-one autocorrelation of the weighted residuals, averaged by harmonic.
+///
+/// Observations arrive grouped by harmonic, so each harmonic is a contiguous
+/// run. Within a run the weighted residuals `√w·r` are correlated at lag one.
+/// The result is averaged over harmonics with at least three samples, weighted
+/// by the number of residuals, and clamped to `[-1, 1]`. A run with no variance
+/// or a single pair contributes nothing; a fit without any usable run reports
+/// zero, which is neutral for the quality gate.
+fn residual_autocorrelation(observations: &[Observation], evaluation: &Evaluation) -> f64 {
+    let mut groups: Vec<(u32, Vec<f64>)> = Vec::new();
+    for ((observation, residual), weight) in observations
+        .iter()
+        .zip(evaluation.residuals.iter())
+        .zip(evaluation.weights.iter())
+    {
+        let value = weight.max(0.0).sqrt() * residual;
+        match groups.last_mut() {
+            Some((harmonic, values)) if *harmonic == observation.harmonic => values.push(value),
+            _ => groups.push((observation.harmonic, vec![value])),
+        }
+    }
+
+    let mut weighted_sum = 0.0_f64;
+    let mut sample_count = 0_usize;
+    for (_, values) in &groups {
+        if values.len() < 3 {
+            continue;
+        }
+        let count = values.len() as f64;
+        let mean = values.iter().sum::<f64>() / count;
+        let mut numerator = 0.0_f64;
+        let mut denominator = 0.0_f64;
+        for pair in values.windows(2) {
+            if let [first, second] = pair {
+                numerator += (first - mean) * (second - mean);
+            }
+        }
+        for value in values {
+            denominator += (value - mean) * (value - mean);
+        }
+        if denominator > 0.0 && numerator.is_finite() && denominator.is_finite() {
+            let rho = (numerator / denominator).clamp(-1.0, 1.0);
+            weighted_sum += rho * count;
+            sample_count = sample_count.saturating_add(values.len());
+        }
+    }
+    if sample_count == 0 {
+        0.0
+    } else {
+        weighted_sum / sample_count as f64
+    }
 }
 
 /// Step used for one parameter's central difference.
