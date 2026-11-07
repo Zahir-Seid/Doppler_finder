@@ -83,16 +83,18 @@ and redistribution policy in the run manifest (NFR-04, NFR-06).
 | --- | --- | --- | --- |
 | OpenSky Network | Open academic use, attribution; verify current terms for redistribution | ADS-B tracks | Planned, terms must be confirmed |
 | adsb.lol | Open data; verify the current ODbL or equivalent terms | ADS-B tracks | Planned, terms must be confirmed |
-| SRTM or Copernicus DEM | Public domain or open with attribution; verify the chosen product | Terrain | Planned |
+| SRTM or Copernicus DEM | Public domain or open with attribution; verify the chosen product | Terrain | SRTMGL1 crop in `crates/geodesy/tests/fixtures/srtm_everest_33x33.txt`, extracted 2026-11-07 from AWS Open Data `N27E086.hgt.gz` (SHA-256 `0e95b43508321ee2b3d9454797130bf1c972737377eff4cb07b4cf912138aad1`); SRTM is a public-domain NASA/USGS product; format in `docs/dem-grid-format.md` |
 | EGM96 / EGM2008 | Public domain geoid grid (NGA) | Geoid correction | EGM96 15-minute subset in `crates/geodesy/tests/fixtures/egm96_uk_3deg.txt`, extracted 2026-11-07 from PROJ `egm96_15.gtx` (SHA-256 `c02a6eb70a7a78efebe5adf3ade626eb75390e170bb8b3f36136a2c28f5326a0`); format in `docs/geoid-grid-format.md` |
 | Natural Earth | Public domain | Land mask and map background | Planned |
 | Dove's Guide for Church Bell Ringers | Reference only; do not copy the dataset without permission | Grid-hum context | Reference only |
 | Author's own recordings | Written consent from the author | Real-clip calibration | Planned |
 | Phone-video samples | Contributor consent and anonymized location | Codec and detector tests | Planned |
 
-`crates/geodesy/tests/fixtures/egm96_uk_3deg.txt` is the only dataset committed
-so far. It is test-only, and `docs/geoid-grid-format.md` records its extraction,
-format, source hash and licence.
+`crates/geodesy/tests/fixtures/egm96_uk_3deg.txt` and
+`crates/geodesy/tests/fixtures/srtm_everest_33x33.txt` are the only datasets
+committed so far. Both are test-only. `docs/geoid-grid-format.md` and
+`docs/dem-grid-format.md` record their extraction, format, source hashes and
+licences.
 
 ## Copied code and reference repositories
 

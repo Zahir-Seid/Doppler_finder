@@ -28,20 +28,20 @@ Read first, in this order:
 
 | Status | Count |
 | --- | ---: |
-| Done | 8 |
-| Partial | 7 |
+| Done | 9 |
+| Partial | 6 |
 | In progress | 0 |
 | Scaffolded | 2 |
 | Not started | 31 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **8 done, 5 partial,
+For **v0** (24 tracked rows, including gates G1 and G2): **9 done, 4 partial,
 0 in progress, 11 not started**. The done rows are `FR-SIM-01` (synthesis and
 truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
 (track-then-fit estimation), `FR-DM-03` (emission-time model), `FR-DM-04`
 (harmonics combined coherently in the fit), `FR-DM-05` (direct estimation on
-faint events) and `FR-DM-06` (quality score and gate). The v0 partial rows are
-`FR-DA-02` (geoid done, DEM pending), `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and
+faint events), `FR-DM-06` (quality score and gate) and `FR-DA-02` (geoid and
+DEM). The v0 partial rows are `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and
 `FR-SIM-04`; `NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
 `FR-DM-01` closed with
 EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02, `FR-DM-05` with EVT-03,
@@ -52,15 +52,16 @@ with no ridge input, the quality gate drops weak events with recorded reasons,
 and a regression pins the emission-time model against a delayed-copy control.
 The M3 end-to-end exit test now drives a simulated pass from audio through
 whitening, detection and direct fitting to a retained quality assessment.
-GEO-01 adds the EGM96 geoid grid and height conversion; `FR-DA-02` stays
-partial until GEO-02 supplies terrain from a DEM.
+GEO-01 adds the EGM96 geoid grid and height conversion; GEO-02 adds the DEM
+sampler, SRTM `.hgt` loading and observer-height composition, closing
+`FR-DA-02`.
 
 ### 1.2 Code state
 
 | Crate | State | What exists |
 | --- | --- | --- |
 | `core-types` | Usable | Units, two-clock bridge, IDs, cancellation, manifests and SHA-256 |
-| `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; EGM96 grid with bilinear sampling and orthometric/ellipsoidal conversion; DEM trait only |
+| `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; EGM96 grid with bilinear sampling and orthometric/ellipsoidal conversion; DEM text and SRTM `.hgt` grids with void handling and observer-height composition |
 | `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
@@ -75,8 +76,9 @@ partial until GEO-02 supplies terrain from a DEM.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 238 tests pass (30 acoustics, 29 core-types, 75 dsp,
-31 events, 19 geodesy, 52 sim unit, 2 sim golden). `cargo deny` and `cargo audit`
+the full test suite pass. 249 tests pass (30 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 52 sim unit, 2 sim
+golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -209,7 +211,7 @@ Residual work:
 
 - **GEO-01** `[x]` Geoid model and orthometric-to-ellipsoidal conversion
   (FR-DA-02). Commit `74780dc`. See M4.
-- **GEO-02** `[ ]` DEM sampler and terrain lookup (FR-DA-02). See M4.
+- **GEO-02** `[x]` DEM sampler and terrain lookup (FR-DA-02). Commit `3dfd22f`.
 
 ### M1 — Simulator
 
@@ -420,9 +422,22 @@ tests; use recorded fixtures.
   Tests: `crates/geodesy/tests/geoid.rs`, covering a hand-computed bilinear
   cell, EGM96 node reference values, height round trips, coverage and invalid
   coordinates, metadata, malformed grids and text, and inclusive edges.
-- **GEO-02** `[ ]` DEM sampler (FR-DA-02).
-  Load SRTM or Copernicus tiles, bilinear sample, return terrain height at the
-  observer and along a path. Record the product/version and vertical error.
+- **GEO-02** `[x]` DEM sampler (FR-DA-02). Commit `3dfd22f`.
+  `DemGrid` holds a regular latitude/longitude grid of orthometric heights in
+  metres with product, version, source, licence and vertical error for the
+  manifest (NFR-04, NFR-06). Sampling is bilinear, edges are inclusive, a void
+  or anything outside returns `NoCoverage`, and a cell with any void corner is
+  never interpolated. The loader reads the documented `doppler-dem` v1 text
+  format and decompressed SRTM `.hgt` tiles: big-endian `i16`, north-first rows
+  flipped into the south-first convention, and `-32768` mapped to a void.
+  `SrtmTile` parses names such as `N27E086`, and `observer_height_m` composes
+  terrain, ear height and geoid undulation as `h = H_terrain + H_ear + N` from
+  SDD section 6.1. A 33 by 33 SRTMGL1 crop around Everest ships as test data;
+  the format and provenance are in `docs/dem-grid-format.md`.
+  Tests: `crates/geodesy/tests/dem.rs`, covering a hand-computed bilinear cell,
+  SRTM node reference values, inclusive edges, coverage and voids, metadata and
+  vertical error, big-endian row flipping and void mapping, bad byte lengths,
+  tile-name parsing, observer-height composition, and malformed grids and text.
 - **ADSB-01** `[ ]` Archive clients (FR-DA-01).
   OpenSky and/or adsb.lol behind `TrackSource`; `reqwest` with
   `rustls-tls-native-roots`; allow-listed hosts; timeouts; bounded retries;
@@ -677,8 +692,8 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **GEO-02** DEM sampler, then **ADSB-01**; run them in parallel if a second
-   agent is free.
+1. **ADSB-01** archive clients, then **ADSB-02** track store; run them in
+   parallel if a second agent is free.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
