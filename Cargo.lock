@@ -8,6 +8,8 @@ version = "0.0.0"
 dependencies = [
  "core-types",
  "geodesy",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

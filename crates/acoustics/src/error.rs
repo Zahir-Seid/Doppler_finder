@@ -29,6 +29,12 @@ pub enum AcousticsError {
     /// Harmonics are numbered from one; there is no zeroth harmonic.
     #[error("harmonic number must be at least 1")]
     ZeroHarmonic,
+    /// A recorded payload could not be parsed.
+    #[error("could not parse payload: {0}")]
+    Parse(String),
+    /// A query or window argument is malformed.
+    #[error("invalid query: {0}")]
+    InvalidQuery(String),
     /// No emission time satisfies the light-time equation for this geometry.
     #[error("no real retarded time for the requested geometry")]
     NoRealSolution,
