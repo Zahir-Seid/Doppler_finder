@@ -4,8 +4,8 @@ Execution plan for the implementing agent(s). This file orders the work; it does
 not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
-- **Last updated:** 2026-11-07
-- **Last recorded commit:** `74780dc` (`develop`)
+- **Last updated:** 2026-11-08
+- **Last recorded commit:** `ef3ddd3` (`develop`)
 - **Current milestone:** M4 (ADS-B, terrain and atmosphere); M3 closed
 - **Release under construction:** v0 research core
 
@@ -28,21 +28,22 @@ Read first, in this order:
 
 | Status | Count |
 | --- | ---: |
-| Done | 9 |
+| Done | 10 |
 | Partial | 7 |
 | In progress | 0 |
 | Scaffolded | 2 |
-| Not started | 30 |
+| Not started | 29 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **9 done, 5 partial,
-0 in progress, 10 not started**. The done rows are `FR-SIM-01` (synthesis and
+For **v0** (24 tracked rows, including gates G1 and G2): **10 done, 5 partial,
+0 in progress, 9 not started**. The done rows are `FR-SIM-01` (synthesis and
 truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
 (track-then-fit estimation), `FR-DM-03` (emission-time model), `FR-DM-04`
 (harmonics combined coherently in the fit), `FR-DM-05` (direct estimation on
-faint events), `FR-DM-06` (quality score and gate) and `FR-DA-02` (geoid and
-DEM). The v0 partial rows are `FR-DA-01` (OpenSky states client; history and
-store pending), `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
+faint events), `FR-DM-06` (quality score and gate), `FR-DA-02` (geoid and
+DEM) and `FR-DA-04` (Parquet track store and offline replay). The v0 partial
+rows are `FR-DA-01` (OpenSky states client; full-day history and latency
+pending), `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
 `NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
 `FR-DM-01` closed with
 EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02, `FR-DM-05` with EVT-03,
@@ -56,8 +57,9 @@ whitening, detection and direct fitting to a retained quality assessment.
 GEO-01 adds the EGM96 geoid grid and height conversion; GEO-02 adds the DEM
 sampler, SRTM `.hgt` loading and observer-height composition, closing
 `FR-DA-02`. ADSB-01 adds the allow-listed OpenSky states client and measured
-sampling statistics; `FR-DA-01` stays partial until full-day history, the
-offline store and latency recording land.
+sampling statistics; `FR-DA-01` stays partial until full-day history and
+latency recording land. ADSB-02 adds the partitioned Parquet track store and
+offline replay, closing `FR-DA-04`.
 
 ### 1.2 Code state
 
@@ -69,7 +71,7 @@ offline store and latency recording land.
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
-| `adsb` | Partial | `TrackSource`, track model and linear interpolation; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics |
+| `adsb` | Partial | `TrackSource`, track model and linear interpolation; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
 | `store` | Types only | Job records/repository trait, limits, retention |
@@ -79,8 +81,8 @@ offline store and latency recording land.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 262 tests pass (30 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 13 adsb, 52 sim unit,
+the full test suite pass. 274 tests pass (30 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 25 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -455,15 +457,25 @@ tests; use recorded fixtures.
   `DataSource` manifest record. No test opens a socket; the client is exercised
   through a scripted transport and a documented-shape OpenSky fixture. The
   REST endpoint serves recent states only, so full-day history and latency
-  recording remain open under ADSB-02 and the Trino/dump ingest work.
+  recording remain open for the Trino/dump ingest work.
   Tests: `crates/adsb/tests/da_01.rs`, covering parsing, window filtering,
   malformed payloads, empty states, allow-list rejection, the size cap, bounded
   and non-retryable responses, request construction, query validation and
   sampling statistics. Source notes are in `docs/adsb-sources.md`.
-- **ADSB-02** `[ ]` Parquet track store and cache (FR-DA-04).
-  Schema from SDD 9.2 partitioned by UTC date and 1° tile; keep both `alt_geom_m`
-  and `alt_baro_m`; offline replay; `ingest_runs` statistics; never resample
-  original sampling in the store.
+- **ADSB-02** `[x]` Parquet track store and cache (FR-DA-04).
+  `TrackStore` writes the SDD 9.2 schema partitioned by source, UTC date and
+  1° tile at `source=<kind>/date=YYYY-MM-DD/lat=<floor>/lon=<floor>/part-<sha256>.parquet`,
+  keeping both `alt_geom_m` and `alt_baro_m`, callsign, type code, vertical
+  rate and quality flags. File names are content hashes, so identical input
+  gives identical paths and bytes. Replay prunes directories by date and tile,
+  filters rows by the exact inclusive window and region, preserves the
+  original timestamps without resampling, and regroups split tracks by source
+  and ICAO24. `ingest_runs` recomputes median and p90 sampling gaps per source
+  and day from the files on disk and records each file's SHA-256. Tests:
+  `crates/adsb/tests/da_04.rs`, covering both altitude datums, partition paths,
+  region/window pruning, exact timestamps, ingest statistics, deterministic
+  writes, invalid input, empty input and flag round-trips. Store notes are in
+  `docs/track-store.md`.
 - **ADSB-03** `[ ]` Hermite interpolation, legs and closest approach (FR-DA-01).
   Replace the linear seed used by the light-time solver with Hermite
   interpolation. Derive legs with time span, bounding box, point count, sampling
@@ -710,8 +722,8 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ADSB-02** Parquet track store and cache, then **ADSB-03** Hermite
-   interpolation and legs; run them in parallel if a second agent is free.
+1. **ADSB-03** Hermite interpolation, legs and closest approach; **ADSB-04**
+   source/region support flags can follow in parallel if a second agent is free.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 

@@ -70,8 +70,11 @@ Malformed rows, non-finite values, coordinates outside WGS84 bounds and bad
 ICAO24 strings are parse errors rather than silently discarded data.
 
 The track model keeps geometric altitude because that is the datum the
-propagation maths needs. Barometric altitude and vertical rate are not yet
-carried; ADSB-02's store will add the columns before ingest relies on them.
+propagation maths needs, and it also keeps barometric altitude, vertical rate
+and the source's position-quality flags. OpenSky field 7 becomes
+`barometric_altitude_m`, field 11 becomes `vertical_rate_m_per_s`, and a
+`position_source` of 2 sets `FLAG_MLAT`. Both altitude datums are stored by the
+Parquet cache so the error budget can treat the datum as a source of error.
 
 ## Sampling statistics
 
@@ -82,9 +85,9 @@ are ignored because they do not describe the source's sampling interval.
 record, so a result is tied to the measured intervals that produced it
 (FR-DA-01, NFR-04).
 
-Source latency is not recorded yet. It belongs with the ingest-run statistics
-in ADSB-02, where the fetch time and the provider's own timestamps are both
-available.
+Source latency is still not recorded. The Parquet cache records measured
+sampling intervals per source and day; a fetch-latency field belongs with the
+ingest-run statistics once the archive path records response times.
 
 ## Test fixture
 

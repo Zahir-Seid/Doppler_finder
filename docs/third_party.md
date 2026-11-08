@@ -33,14 +33,14 @@ locked version before release.
 | `nalgebra` | Apache-2.0 | Linear algebra and covariance | In `sim` (0.35) for the Fisher matrix and in `events` for the fit normal equations |
 | `realfft` | MIT | Real FFT for the STFT | In `dsp` (3.5.1) |
 | `rustfft` | MIT OR Apache-2.0 | FFT engine behind `realfft` | Indirect, via `realfft` (6.4.1) |
-| `arrow` | Apache-2.0 | Columnar track store | Approved, later |
-| `parquet` | Apache-2.0 | Track file format | Approved, later |
+| `arrow` | Apache-2.0 | Columnar track store | In `adsb` (60) with default features off |
+| `parquet` | Apache-2.0 | Track file format | In `adsb` (60) with default features off, `arrow` and `snap` compression |
 | `sqlx` | MIT OR Apache-2.0 | Relational repositories | Approved, later |
 | `reqwest` | MIT OR Apache-2.0 | ADS-B archive client | In `adsb` (0.12) with blocking and `rustls-tls-native-roots` |
 | `rustls` | Apache-2.0 OR MIT OR ISC | TLS for `reqwest` | Indirect, via `reqwest` (0.12) |
 | `levenberg-marquardt` | MIT | Nonlinear least squares, with an in-house fallback | Approved, verify at lock |
 | `statrs` | MIT | Chi-square and distribution functions | Approved, later |
-| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim` and `dsp` |
+| `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim`, `dsp` and `adsb` |
 | `proptest` | MIT OR Apache-2.0 | Property tests | Approved, later |
 | `rand` | MIT OR Apache-2.0 | Seeded simulator randomness | In `sim` (0.9) |
 | `rand_chacha` | MIT OR Apache-2.0 | Seeded ChaCha20 generator for reproducible noise and feeds | In `sim` (0.9) |
@@ -58,6 +58,10 @@ locked version before release.
 - `realfft` also pulls `primal-check`, `strength_reduce` and `transpose` (all
   MIT OR Apache-2.0); `num-complex` and `num-traits` were already in the lock
   for `nalgebra`. `cargo deny check` covers them.
+- `parquet`'s `snap` feature pulls `snap` (BSD-3-Clause) for SNAPPY
+  compression. `arrow` and `parquet` also pull the Apache-2.0/MIT
+  `arrow-*` crates plus `chrono`, `half`, `flatbuffers` and `lexical-*`; all
+  are inside the `deny.toml` allow-list and are covered by `cargo deny check`.
 
 ### Excluded or conditional
 
