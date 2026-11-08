@@ -6,6 +6,7 @@
 //! legs and closest-approach prediction.
 
 pub mod closest;
+pub mod coverage;
 pub mod error;
 pub mod http;
 pub mod interpolate;
@@ -17,6 +18,7 @@ pub mod track_store;
 pub mod tracks;
 
 pub use closest::{ClosestApproach, closest_approach};
+pub use coverage::{CoverageReport, MAX_SUPPORTED_MEDIAN_GAP_S, RegionSupport, assess_coverage};
 pub use error::AdsbError;
 pub use http::{HttpPolicy, HttpRequest, HttpResponse, HttpTransport, ReqwestTransport};
 pub use interpolate::{TrackInterpolator, interpolate};
