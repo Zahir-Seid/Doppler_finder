@@ -511,6 +511,17 @@ tests; use recorded fixtures.
   flagged standard atmosphere when no sample exists. The live fetch adapter
   is separate work; tests replay a recorded fixture only. Tests:
   `crates/acoustics/tests/weather.rs`.
+- **ADSB-05** `[ ]` Full-day history ingest and latency recording (FR-DA-01).
+  The OpenSky REST client serves recent states only. Add a `TrackSource`
+  implementation for full-day history — the adsb.lol daily dumps or the
+  OpenSky Trino interface — writing into the existing `TrackStore`, and
+  record per-source latency in the manifest's `DataSource` record so
+  `FR-DA-01` can close. Recorded fixtures only; no live fetch in tests.
+- **ACO-02** `[ ]` Live weather fetch adapter (FR-DA-03).
+  A transport-guarded fetch for a public weather archive (for example
+  Open-Meteo) producing the normalized payload `acoustics::weather` already
+  parses, with the host on the request allow-list. Recorded fixtures only;
+  the adapter marks its `DataSource` record like the ADS-B ingest does.
 
 **Exit:** a fixture archive ingests, caches and replays offline; the manifest
 records source, version, hash and sampling statistics; terrain and geoid affect
@@ -746,7 +757,10 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
+1. **ADSB-05** full-day history ingest and latency recording — closes
+   `FR-DA-01`; **ACO-02** live weather fetch — closes `FR-DA-03`. Either can
+   go first; both need a recorded fixture and an allow-listed host.
+2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
