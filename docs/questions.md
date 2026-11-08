@@ -162,3 +162,18 @@ holds implementation-level questions and cross-document risks.
 - **Decision:** The project is AGPL-3.0-only. The root licence is accepted.
   `deny.toml` allows only the listed permissive licences for dependencies;
   AGPL is the project's own licence, not a dependency licence.
+
+## Q-15: Engine-class table and leg granularity
+
+- **Status:** Open, needs a type database or a decision.
+- **Context:** ADSB-03 derives legs and an engine class per SDD 9.2/6.2. The
+  engine-class tables in `adsb::legs` are a starter set of common ICAO type
+  designators; anything unlisted is `Unknown`, which the silence term treats
+  probabilistically. One leg is derived per stored track, with no splitting
+  on long reporting gaps, because no gap threshold is fixed.
+- **Default:** Keep the starter tables, treat unlisted codes as `Unknown`,
+  derive one leg per track, and expose `max_gap_s` so a later stage can split
+  on measured gaps.
+- **Resolution:** Source a fuller ICAO type-designator catalogue (or a
+  curated prop/jet list) and decide whether legs split on a measured gap
+  threshold; record both in the SDD or a proposal.

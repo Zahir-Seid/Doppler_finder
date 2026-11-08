@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-08
-- **Last recorded commit:** `ef3ddd3` (`develop`)
+- **Last recorded commit:** `b88df24` (`develop`)
 - **Current milestone:** M4 (ADS-B, terrain and atmosphere); M3 closed
 - **Release under construction:** v0 research core
 
@@ -59,7 +59,10 @@ sampler, SRTM `.hgt` loading and observer-height composition, closing
 `FR-DA-02`. ADSB-01 adds the allow-listed OpenSky states client and measured
 sampling statistics; `FR-DA-01` stays partial until full-day history and
 latency recording land. ADSB-02 adds the partitioned Parquet track store and
-offline replay, closing `FR-DA-04`.
+offline replay, closing `FR-DA-04`. ADSB-03 adds Hermite interpolation for
+the light-time solver, derived legs with engine class and closest-approach
+prediction; `FR-DA-01` stays partial until full-day history and latency
+recording land.
 
 ### 1.2 Code state
 
@@ -71,7 +74,7 @@ offline replay, closing `FR-DA-04`.
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
-| `adsb` | Partial | `TrackSource`, track model and linear interpolation; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics |
+| `adsb` | Partial | `TrackSource`, track model; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics; Hermite interpolation, derived legs and closest-approach prediction |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
 | `store` | Types only | Job records/repository trait, limits, retention |
@@ -81,8 +84,8 @@ offline replay, closing `FR-DA-04`.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 274 tests pass (30 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 25 adsb, 52 sim unit,
+the full test suite pass. 284 tests pass (30 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 35 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -476,10 +479,22 @@ tests; use recorded fixtures.
   region/window pruning, exact timestamps, ingest statistics, deterministic
   writes, invalid input, empty input and flag round-trips. Store notes are in
   `docs/track-store.md`.
-- **ADSB-03** `[ ]` Hermite interpolation, legs and closest approach (FR-DA-01).
-  Replace the linear seed used by the light-time solver with Hermite
-  interpolation. Derive legs with time span, bounding box, point count, sampling
-  gaps and engine class.
+- **ADSB-03** `[x]` Hermite interpolation, legs and closest approach (FR-DA-01).
+  `TrackInterpolator` replaces the linear seed with cubic Hermite
+  interpolation in a track-local ENU frame; knot velocities are
+  centred finite differences of stored positions, and
+  `position_ecef(unix_time_s)` is the seam `acoustics::solve_emission_time`
+  plugs into. `Leg` derives the SDD 9.2 legs row — deterministic
+  `leg_id`, time span, bounding box, point count, measured median and maximum
+  sampling gaps, and an engine class from a starter ICAO type-code table
+  (unlisted codes stay `Unknown`, Q-15). `closest_approach` minimizes 3-D
+  slant range over the interpolant with a per-interval golden-section search
+  and applies `t_r = t_e + range / c` exactly, returning emission and heard
+  times, slant range and horizontal speed. Tests:
+  `crates/adsb/tests/track_model.rs` plus interpolate unit tests, covering
+  knot exactness, a curved-leg accuracy check against the chord, leg fields
+  and engine classes, closest-approach geometry and input rejection. Model
+  notes are in `docs/track-model.md`.
 - **ADSB-04** `[ ]` Source/region support flags (T-4).
   Mark a region unsupported when coverage is insufficient; never silently return
   an empty track set as if it were complete.
@@ -722,8 +737,8 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ADSB-03** Hermite interpolation, legs and closest approach; **ADSB-04**
-   source/region support flags can follow in parallel if a second agent is free.
+1. **ADSB-04** source/region support flags; **ACO-01** measured atmosphere
+   adapter can follow in parallel if a second agent is free.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
