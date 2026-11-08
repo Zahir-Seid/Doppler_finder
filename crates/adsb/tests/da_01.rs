@@ -10,7 +10,8 @@ use std::time::Duration;
 
 use adsb::{
     AdsbError, FlightTrack, HttpPolicy, HttpRequest, HttpResponse, HttpTransport, OpenSkyClient,
-    RegionQuery, SamplingStats, TrackSample, TrackSource, parse_opensky_states, sampling_stats,
+    RegionQuery, SamplingStats, TrackSample, TrackSource, TrackSourceKind, parse_opensky_states,
+    sampling_stats,
 };
 use core_types::UtcMillis;
 
@@ -86,8 +87,11 @@ fn sample(utc_s: i64) -> TrackSample {
         lat_deg: 37.0,
         lon_deg: -122.0,
         geometric_altitude_m: 10_000.0,
+        barometric_altitude_m: Some(9_990.0),
         ground_speed_m_per_s: Some(250.0),
         track_deg: Some(90.0),
+        vertical_rate_m_per_s: Some(1.5),
+        flags: 0,
     }
 }
 
@@ -98,14 +102,19 @@ fn fr_da_01_opensky_parses_recorded_states() {
     let track = tracks.first().expect("one track");
     assert_eq!(track.icao24, "abc123");
     assert_eq!(track.callsign.as_deref(), Some("UAL123"));
+    assert_eq!(track.type_code, None);
+    assert_eq!(track.source, TrackSourceKind::OpenSky);
     assert_eq!(track.samples.len(), 2);
     let first = track.samples.first().expect("first sample");
     assert_eq!(first.utc.0, 1_762_500_000_000);
     assert!((first.lat_deg - 37.10).abs() < 1.0e-12);
     assert!((first.lon_deg + 122.10).abs() < 1.0e-12);
     assert!((first.geometric_altitude_m - 10_050.0).abs() < 1.0e-12);
+    assert!((first.barometric_altitude_m.expect("baro") - 10_000.0).abs() < 1.0e-12);
     assert_eq!(first.ground_speed_m_per_s, Some(250.0));
     assert_eq!(first.track_deg, Some(90.0));
+    assert_eq!(first.vertical_rate_m_per_s, Some(0.0));
+    assert_eq!(first.flags, 0);
     let second = track.samples.get(1).expect("second sample");
     assert_eq!(second.utc.0, 1_762_500_002_000);
 }
@@ -354,11 +363,15 @@ fn fr_da_01_sampling_stats_report_median_and_p90() {
         FlightTrack {
             icao24: "abc123".to_owned(),
             callsign: None,
+            type_code: None,
+            source: TrackSourceKind::OpenSky,
             samples: vec![sample(0), sample(1), sample(3)],
         },
         FlightTrack {
             icao24: "def456".to_owned(),
             callsign: None,
+            type_code: None,
+            source: TrackSourceKind::OpenSky,
             samples: vec![sample(0), sample(3), sample(7)],
         },
     ];
@@ -377,6 +390,8 @@ fn fr_da_01_sampling_stats_report_median_and_p90() {
     let no_gaps = vec![FlightTrack {
         icao24: "abc123".to_owned(),
         callsign: None,
+        type_code: None,
+        source: TrackSourceKind::OpenSky,
         samples: vec![sample(1), sample(1)],
     }];
     assert_eq!(sampling_stats(&no_gaps), None);
@@ -384,6 +399,8 @@ fn fr_da_01_sampling_stats_report_median_and_p90() {
         sampling_stats(&[FlightTrack {
             icao24: "abc123".to_owned(),
             callsign: None,
+            type_code: None,
+            source: TrackSourceKind::OpenSky,
             samples: vec![sample(1)],
         }]),
         None
@@ -395,6 +412,8 @@ fn fr_da_01_sampling_stats_are_deterministic() {
     let tracks = vec![FlightTrack {
         icao24: "abc123".to_owned(),
         callsign: None,
+        type_code: None,
+        source: TrackSourceKind::OpenSky,
         samples: vec![sample(0), sample(1), sample(3), sample(6)],
     }];
     let first = sampling_stats(&tracks);

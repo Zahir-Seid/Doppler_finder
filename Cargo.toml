@@ -26,10 +26,12 @@ publish = false
 
 [workspace.dependencies]
 anyhow = "1"
+arrow = { version = "60", default-features = false }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
 hound = "3"
 nalgebra = "0.35"
+parquet = { version = "60", default-features = false, features = ["arrow", "snap"] }
 rand = "0.9"
 rand_chacha = "0.9"
 realfft = "3.5"

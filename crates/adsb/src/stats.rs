@@ -64,6 +64,16 @@ pub fn sampling_stats(tracks: &[FlightTrack]) -> Option<SamplingStats> {
             }
         }
     }
+    stats_from_intervals(sample_count, &mut intervals)
+}
+
+/// Compute median and nearest-rank p90 from positive sampling intervals.
+///
+/// The interval vector is sorted in place. Returns `None` when it is empty.
+pub(crate) fn stats_from_intervals(
+    sample_count: usize,
+    intervals: &mut [f64],
+) -> Option<SamplingStats> {
     if intervals.is_empty() {
         return None;
     }

@@ -16,6 +16,9 @@ pub enum AdsbError {
     /// A track contained invalid coordinates or times.
     #[error("invalid track data: {0}")]
     InvalidTrack(String),
+    /// The Parquet track store could not be read or written.
+    #[error("track store error: {0}")]
+    Store(String),
     /// A region or time window is malformed.
     #[error("invalid track query: {0}")]
     InvalidQuery(String),

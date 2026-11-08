@@ -18,7 +18,7 @@ use serde_json::Value;
 use crate::error::AdsbError;
 use crate::http::{HttpPolicy, HttpRequest, HttpTransport};
 use crate::source::{RegionQuery, TrackSource};
-use crate::tracks::{FlightTrack, TrackSample};
+use crate::tracks::{FLAG_MLAT, FlightTrack, TrackSample, TrackSourceKind};
 
 /// OpenSky host that the default policy must allow.
 pub const OPENSKY_HOST: &str = "opensky-network.org";
@@ -145,6 +145,8 @@ pub fn parse_opensky_states(
             .or_insert_with(|| FlightTrack {
                 icao24: parsed.icao24,
                 callsign: None,
+                type_code: None,
+                source: TrackSourceKind::OpenSky,
                 samples: Vec::new(),
             });
         if entry.callsign.is_none() {
@@ -215,6 +217,14 @@ fn parse_state(row: &Value, query: &RegionQuery) -> Result<Option<ParsedState>, 
 
     let ground_speed_m_per_s = optional_non_negative(row, 9, "ground speed")?;
     let track_deg = optional_track(row, 10)?;
+    let barometric_altitude_m = optional_number(row, 7)?;
+    let vertical_rate_m_per_s = optional_number(row, 11)?;
+    // OpenSky `position_source`: 0 ADS-B, 1 ASTERIX, 2 MLAT, 3 FLARM.
+    let flags = if integer_at(row, 16) == Some(2) {
+        FLAG_MLAT
+    } else {
+        0
+    };
     let callsign = text_at(row, 1)
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -228,8 +238,11 @@ fn parse_state(row: &Value, query: &RegionQuery) -> Result<Option<ParsedState>, 
             lat_deg,
             lon_deg,
             geometric_altitude_m,
+            barometric_altitude_m,
             ground_speed_m_per_s,
             track_deg,
+            vertical_rate_m_per_s,
+            flags,
         },
     }))
 }
@@ -262,6 +275,23 @@ fn integer_at(row: &Value, index: usize) -> Option<i64> {
 /// Read a boolean field.
 fn bool_at(row: &Value, index: usize) -> Option<bool> {
     value_at(row, index)?.as_bool()
+}
+
+/// Read an optional finite number, treating `null` and a missing field as
+/// absent.
+fn optional_number(row: &Value, index: usize) -> Result<Option<f64>, AdsbError> {
+    match value_at(row, index) {
+        Some(Value::Null) | None => Ok(None),
+        Some(value) => {
+            let number = value.as_f64().ok_or_else(|| {
+                AdsbError::Parse(format!("field {index} is not a number: {value}"))
+            })?;
+            if !number.is_finite() {
+                return Err(AdsbError::Parse(format!("field {index} must be finite")));
+            }
+            Ok(Some(number))
+        }
+    }
 }
 
 /// Read an optional non-negative finite value.
