@@ -36,8 +36,8 @@ locked version before release.
 | `arrow` | Apache-2.0 | Columnar track store | Approved, later |
 | `parquet` | Apache-2.0 | Track file format | Approved, later |
 | `sqlx` | MIT OR Apache-2.0 | Relational repositories | Approved, later |
-| `reqwest` | MIT OR Apache-2.0 | ADS-B archive client | Approved, later |
-| `rustls` | Apache-2.0 OR MIT OR ISC | TLS for `reqwest` | Approved, later |
+| `reqwest` | MIT OR Apache-2.0 | ADS-B archive client | In `adsb` (0.12) with blocking and `rustls-tls-native-roots` |
+| `rustls` | Apache-2.0 OR MIT OR ISC | TLS for `reqwest` | Indirect, via `reqwest` (0.12) |
 | `levenberg-marquardt` | MIT | Nonlinear least squares, with an in-house fallback | Approved, verify at lock |
 | `statrs` | MIT | Chi-square and distribution functions | Approved, later |
 | `tempfile` | MIT OR Apache-2.0 | Temporary test and scratch directories | Dev-dependency of `sim` and `dsp` |
@@ -81,7 +81,7 @@ and redistribution policy in the run manifest (NFR-04, NFR-06).
 
 | Source | Expected licence or terms | Use | Status |
 | --- | --- | --- | --- |
-| OpenSky Network | Open academic use, attribution; verify current terms for redistribution | ADS-B tracks | Planned, terms must be confirmed |
+| OpenSky Network | Open academic use, attribution; verify current terms for redistribution | ADS-B tracks | OpenSky states client in `adsb`; fixture `crates/adsb/tests/fixtures/opensky_states.json`; terms still to confirm for redistribution |
 | adsb.lol | Open data; verify the current ODbL or equivalent terms | ADS-B tracks | Planned, terms must be confirmed |
 | SRTM or Copernicus DEM | Public domain or open with attribution; verify the chosen product | Terrain | SRTMGL1 crop in `crates/geodesy/tests/fixtures/srtm_everest_33x33.txt`, extracted 2026-11-07 from AWS Open Data `N27E086.hgt.gz` (SHA-256 `0e95b43508321ee2b3d9454797130bf1c972737377eff4cb07b4cf912138aad1`); SRTM is a public-domain NASA/USGS product; format in `docs/dem-grid-format.md` |
 | EGM96 / EGM2008 | Public domain geoid grid (NGA) | Geoid correction | EGM96 15-minute subset in `crates/geodesy/tests/fixtures/egm96_uk_3deg.txt`, extracted 2026-11-07 from PROJ `egm96_15.gtx` (SHA-256 `c02a6eb70a7a78efebe5adf3ade626eb75390e170bb8b3f36136a2c28f5326a0`); format in `docs/geoid-grid-format.md` |

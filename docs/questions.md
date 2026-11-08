@@ -43,13 +43,15 @@ holds implementation-level questions and cross-document risks.
 
 ## Q-4: TLS root store for `reqwest`
 
-- **Status:** Open.
+- **Status:** Resolved in ADSB-01.
 - **Context:** `reqwest`'s common `rustls-tls` feature pulls `webpki-roots`
   (MPL-2.0), which is outside the current licence allow-list.
 - **Default:** Use `rustls-tls-native-roots` when the ingest client is added,
   or record a scoped exception in `deny.toml`.
-- **Resolution:** Confirm the chosen feature set in `deny.toml` and
-  `third_party.md`.
+- **Resolution:** `reqwest` 0.12 is built with default features off and only
+  `blocking` plus `rustls-tls-native-roots`; it does not pull `webpki-roots`.
+  `third_party.md` records `reqwest` and `rustls`, and the existing
+  `deny.toml` allow-list covers the resolved tree.
 
 ## Q-5: Public wording versus the locatable threshold
 

@@ -29,20 +29,21 @@ Read first, in this order:
 | Status | Count |
 | --- | ---: |
 | Done | 9 |
-| Partial | 6 |
+| Partial | 7 |
 | In progress | 0 |
 | Scaffolded | 2 |
-| Not started | 31 |
+| Not started | 30 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **9 done, 4 partial,
-0 in progress, 11 not started**. The done rows are `FR-SIM-01` (synthesis and
+For **v0** (24 tracked rows, including gates G1 and G2): **9 done, 5 partial,
+0 in progress, 10 not started**. The done rows are `FR-SIM-01` (synthesis and
 truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
 (track-then-fit estimation), `FR-DM-03` (emission-time model), `FR-DM-04`
 (harmonics combined coherently in the fit), `FR-DM-05` (direct estimation on
 faint events), `FR-DM-06` (quality score and gate) and `FR-DA-02` (geoid and
-DEM). The v0 partial rows are `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and
-`FR-SIM-04`; `NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
+DEM). The v0 partial rows are `FR-DA-01` (OpenSky states client; history and
+store pending), `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
+`NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
 `FR-DM-01` closed with
 EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02, `FR-DM-05` with EVT-03,
 `FR-DM-06` with EVT-04 and `FR-DM-03` with EVT-05: the detector runs on the
@@ -54,7 +55,9 @@ The M3 end-to-end exit test now drives a simulated pass from audio through
 whitening, detection and direct fitting to a retained quality assessment.
 GEO-01 adds the EGM96 geoid grid and height conversion; GEO-02 adds the DEM
 sampler, SRTM `.hgt` loading and observer-height composition, closing
-`FR-DA-02`.
+`FR-DA-02`. ADSB-01 adds the allow-listed OpenSky states client and measured
+sampling statistics; `FR-DA-01` stays partial until full-day history, the
+offline store and latency recording land.
 
 ### 1.2 Code state
 
@@ -66,7 +69,7 @@ sampler, SRTM `.hgt` loading and observer-height composition, closing
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
-| `adsb` | Types only | `TrackSource`, track model, linear interpolation |
+| `adsb` | Partial | `TrackSource`, track model and linear interpolation; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
 | `store` | Types only | Job records/repository trait, limits, retention |
@@ -76,9 +79,9 @@ sampler, SRTM `.hgt` loading and observer-height composition, closing
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 249 tests pass (30 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 52 sim unit, 2 sim
-golden). `cargo deny` and `cargo audit`
+the full test suite pass. 262 tests pass (30 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 13 adsb, 52 sim unit,
+2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
 
@@ -438,10 +441,25 @@ tests; use recorded fixtures.
   SRTM node reference values, inclusive edges, coverage and voids, metadata and
   vertical error, big-endian row flipping and void mapping, bad byte lengths,
   tile-name parsing, observer-height composition, and malformed grids and text.
-- **ADSB-01** `[ ]` Archive clients (FR-DA-01).
-  OpenSky and/or adsb.lol behind `TrackSource`; `reqwest` with
-  `rustls-tls-native-roots`; allow-listed hosts; timeouts; bounded retries;
-  size caps. Record measured sampling median/90th percentile per source/day.
+- **ADSB-01** `[x]` Archive clients (FR-DA-01). Commit `b915978`.
+  `OpenSkyClient` implements `TrackSource` over the state-vector endpoint and
+  converts state vectors into time-ordered tracks. Every request goes through
+  `HttpPolicy`: HTTPS only on `opensky-network.org`, the default port, no
+  embedded credentials and no fragment; `ReqwestTransport` uses the blocking
+  client with `rustls-tls-native-roots`, a timeout, refused redirects and a
+  streaming size cap. Statuses 408, 425, 429, 500, 502, 503 and 504 are retried
+  up to a configured bound; other failures return immediately. Samples without
+  a position, geometric altitude or timestamp, surface reports, and points
+  outside the query window are dropped. `sampling_stats` measures the median
+  and nearest-rank 90th percentile of positive sample gaps and builds the
+  `DataSource` manifest record. No test opens a socket; the client is exercised
+  through a scripted transport and a documented-shape OpenSky fixture. The
+  REST endpoint serves recent states only, so full-day history and latency
+  recording remain open under ADSB-02 and the Trino/dump ingest work.
+  Tests: `crates/adsb/tests/da_01.rs`, covering parsing, window filtering,
+  malformed payloads, empty states, allow-list rejection, the size cap, bounded
+  and non-retryable responses, request construction, query validation and
+  sampling statistics. Source notes are in `docs/adsb-sources.md`.
 - **ADSB-02** `[ ]` Parquet track store and cache (FR-DA-04).
   Schema from SDD 9.2 partitioned by UTC date and 1° tile; keep both `alt_geom_m`
   and `alt_baro_m`; offline replay; `ingest_runs` statistics; never resample
@@ -692,8 +710,8 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ADSB-01** archive clients, then **ADSB-02** track store; run them in
-   parallel if a second agent is free.
+1. **ADSB-02** Parquet track store and cache, then **ADSB-03** Hermite
+   interpolation and legs; run them in parallel if a second agent is free.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
@@ -761,7 +779,7 @@ These can land with any milestone, but must not distract from the critical path:
 | Q-1 public clip cap vs two-flyover assumption | M9, M7 limits | 90 s provisional; count real clips |
 | Q-2 mirror ambiguity | SRC-10 | both positions stay; at most `Ambiguous` |
 | Q-3 approved crate list | all | add per task with `third_party.md` entry |
-| Q-4 TLS roots for `reqwest` | ADSB-01 | `rustls-tls-native-roots` |
+| Q-4 TLS roots for `reqwest` | ADSB-01 | `rustls-tls-native-roots`; resolved in ADSB-01 |
 | Q-5 public wording | WEB-03 | say “region”, never exact location |
 | Q-6 frontend spec | WEB-01 | no frontend before approval |
 | Q-10 wind sign/averaging | ACO-01 | source-to-observer positive |
