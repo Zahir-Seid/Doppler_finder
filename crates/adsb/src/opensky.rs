@@ -219,6 +219,14 @@ fn parse_state(row: &Value, query: &RegionQuery) -> Result<Option<ParsedState>, 
     let track_deg = optional_track(row, 10)?;
     let barometric_altitude_m = optional_number(row, 7)?;
     let vertical_rate_m_per_s = optional_number(row, 11)?;
+    // OpenSky fields 3 (`time_position`) and 4 (`last_contact`): the gap is
+    // how stale the position was when the receiver last heard the aircraft.
+    let latency_s = match (integer_at(row, 3), integer_at(row, 4)) {
+        (Some(position_s), Some(contact_s)) if contact_s >= position_s => {
+            Some((contact_s - position_s) as f64)
+        }
+        _ => None,
+    };
     // OpenSky `position_source`: 0 ADS-B, 1 ASTERIX, 2 MLAT, 3 FLARM.
     let flags = if integer_at(row, 16) == Some(2) {
         FLAG_MLAT
@@ -242,6 +250,7 @@ fn parse_state(row: &Value, query: &RegionQuery) -> Result<Option<ParsedState>, 
             ground_speed_m_per_s,
             track_deg,
             vertical_rate_m_per_s,
+            latency_s,
             flags,
         },
     }))

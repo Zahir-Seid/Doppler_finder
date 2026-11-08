@@ -91,6 +91,7 @@ fn sample(utc_s: i64) -> TrackSample {
         ground_speed_m_per_s: Some(250.0),
         track_deg: Some(90.0),
         vertical_rate_m_per_s: Some(1.5),
+        latency_s: None,
         flags: 0,
     }
 }
@@ -405,6 +406,56 @@ fn fr_da_01_sampling_stats_report_median_and_p90() {
         }]),
         None
     );
+}
+
+#[test]
+fn fr_da_01_opensky_states_report_position_latency() {
+    let tracks = parse_opensky_states(FIXTURE, &query()).expect("fixture parses");
+    let latencies: Vec<f64> = tracks
+        .iter()
+        .flat_map(|track| &track.samples)
+        .filter_map(|sample| sample.latency_s)
+        .collect();
+    // The fixture pairs `time_position` with `last_contact` one second later.
+    assert_eq!(latencies.first().copied(), Some(1.0));
+    assert!(latencies.iter().all(|value| (*value - 1.0).abs() < 1.0e-12));
+}
+
+#[test]
+fn fr_da_01_sampling_stats_report_latency_percentiles() {
+    let mut first = sample(0);
+    first.latency_s = Some(1.0);
+    let mut second = sample(1);
+    second.latency_s = Some(3.0);
+    let mut third = sample(3);
+    third.latency_s = Some(2.0);
+    let tracks = vec![FlightTrack {
+        icao24: "abc123".to_owned(),
+        callsign: None,
+        type_code: None,
+        source: TrackSourceKind::OpenSky,
+        samples: vec![first, second, third],
+    }];
+
+    let stats = sampling_stats(&tracks).expect("sampling intervals");
+    assert_eq!(stats.latency_median_s, Some(2.0));
+    assert_eq!(stats.latency_p90_s, Some(3.0));
+
+    let source = stats.data_source("opensky", "2026-11-07", "00".repeat(32));
+    assert_eq!(source.latency_median_s, Some(2.0));
+    assert_eq!(source.latency_p90_s, Some(3.0));
+
+    // Sources that never report staleness keep the fields empty.
+    let unreported = vec![FlightTrack {
+        icao24: "abc123".to_owned(),
+        callsign: None,
+        type_code: None,
+        source: TrackSourceKind::OpenSky,
+        samples: vec![sample(0), sample(1), sample(3)],
+    }];
+    let stats = sampling_stats(&unreported).expect("sampling intervals");
+    assert_eq!(stats.latency_median_s, None);
+    assert_eq!(stats.latency_p90_s, None);
 }
 
 #[test]

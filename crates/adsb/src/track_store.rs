@@ -38,11 +38,11 @@ use parquet::file::properties::WriterProperties;
 
 use crate::error::AdsbError;
 use crate::source::RegionQuery;
-use crate::stats::stats_from_intervals;
+use crate::stats::{sorted_median_p90, stats_from_intervals};
 use crate::tracks::{FlightTrack, TrackSample, TrackSourceKind};
 
 /// Current on-disk schema version, written into Parquet key-value metadata.
-pub const TRACK_STORE_SCHEMA_VERSION: u32 = 1;
+pub const TRACK_STORE_SCHEMA_VERSION: u32 = 2;
 
 /// One written Parquet file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +68,10 @@ pub struct IngestRun {
     pub sampling_median_s: Option<f64>,
     /// Nearest-rank 90th-percentile gap in seconds, when a gap exists.
     pub sampling_p90_s: Option<f64>,
+    /// Median reported position staleness in seconds, when reported.
+    pub latency_median_s: Option<f64>,
+    /// Nearest-rank 90th-percentile reported staleness in seconds.
+    pub latency_p90_s: Option<f64>,
     /// Files backing this source and day, sorted by path.
     pub files: Vec<FileDigest>,
     /// SHA-256 over the sorted file paths and their digests.
@@ -95,6 +99,7 @@ struct StoredRow {
     gs_mps: Option<f32>,
     trk_deg: Option<f32>,
     vrate_mps: Option<f32>,
+    latency_s: Option<f32>,
     flags: u8,
 }
 
@@ -375,6 +380,7 @@ impl StoredRow {
             gs_mps: sample.ground_speed_m_per_s.map(|value| value as f32),
             trk_deg: sample.track_deg.map(|value| value as f32),
             vrate_mps: sample.vertical_rate_m_per_s.map(|value| value as f32),
+            latency_s: sample.latency_s.map(|value| value as f32),
             flags: sample.flags,
         }
     }
@@ -396,6 +402,7 @@ fn track_schema() -> Schema {
         Field::new("source", DataType::Utf8, false),
         Field::new("flags", DataType::UInt8, false),
         Field::new("callsign", DataType::Utf8, true),
+        Field::new("latency_s", DataType::Float32, true),
     ])
 }
 
@@ -414,6 +421,7 @@ fn record_batch(schema: &Arc<Schema>, rows: &[StoredRow]) -> Result<RecordBatch,
     let source = StringArray::from_iter_values(rows.iter().map(|row| row.source.as_str()));
     let flags = UInt8Array::from_iter_values(rows.iter().map(|row| row.flags));
     let callsign = StringArray::from_iter(rows.iter().map(|row| row.callsign.clone()));
+    let latency = Float32Array::from_iter(rows.iter().map(|row| row.latency_s));
 
     let arrays: Vec<ArrayRef> = vec![
         Arc::new(icao24),
@@ -429,6 +437,7 @@ fn record_batch(schema: &Arc<Schema>, rows: &[StoredRow]) -> Result<RecordBatch,
         Arc::new(source),
         Arc::new(flags),
         Arc::new(callsign),
+        Arc::new(latency),
     ];
     RecordBatch::try_new(Arc::clone(schema), arrays)
         .map_err(|error| AdsbError::Store(format!("could not build Arrow batch: {error}")))
@@ -474,6 +483,14 @@ fn rows_from_batch(batch: &RecordBatch) -> Result<Vec<StoredRow>, AdsbError> {
     let source = column::<StringArray>(batch, "source")?;
     let flags = column::<UInt8Array>(batch, "flags")?;
     let callsign = column::<StringArray>(batch, "callsign")?;
+    // `latency_s` was added in schema v2; files written by v1 have no column
+    // and simply report no staleness.
+    let latency = batch
+        .schema()
+        .index_of("latency_s")
+        .ok()
+        .and_then(|index| batch.columns().get(index))
+        .and_then(|array| array.as_any().downcast_ref::<Float32Array>());
 
     let mut rows = Vec::with_capacity(batch.num_rows());
     for index in 0..batch.num_rows() {
@@ -494,6 +511,10 @@ fn rows_from_batch(batch: &RecordBatch) -> Result<Vec<StoredRow>, AdsbError> {
             gs_mps: optional_primitive(gs, index, "gs_mps")?,
             trk_deg: optional_primitive(trk, index, "trk_deg")?,
             vrate_mps: optional_primitive(vrate, index, "vrate_mps")?,
+            latency_s: match latency {
+                Some(column) => optional_primitive(column, index, "latency_s")?,
+                None => None,
+            },
             flags: required_primitive(flags, index, "flags")?,
         });
     }
@@ -614,6 +635,7 @@ fn tracks_from_rows(rows: Vec<StoredRow>) -> Result<Vec<FlightTrack>, AdsbError>
                 ground_speed_m_per_s: row.gs_mps.map(f64::from),
                 track_deg: row.trk_deg.map(f64::from),
                 vertical_rate_m_per_s: row.vrate_mps.map(f64::from),
+                latency_s: row.latency_s.map(f64::from),
                 flags: row.flags,
             })
             .collect();
@@ -641,6 +663,7 @@ fn build_runs(
             .remove(&(*source, date.clone()))
             .unwrap_or_default();
         files.sort_by(|left, right| left.path.cmp(&right.path));
+        let (latency_median_s, latency_p90_s) = latency_for_rows(rows);
         let (sampling_median_s, sampling_p90_s) = sampling_for_rows(rows);
         runs.push(IngestRun {
             source: *source,
@@ -648,6 +671,8 @@ fn build_runs(
             rows: rows.len(),
             sampling_median_s,
             sampling_p90_s,
+            latency_median_s,
+            latency_p90_s,
             file_sha256: combine_digests(&files),
             files,
         });
@@ -679,6 +704,19 @@ fn sampling_for_rows(rows: &[StoredRow]) -> (Option<f64>, Option<f64>) {
     }
     match stats_from_intervals(rows.len(), &mut intervals) {
         Some(stats) => (Some(stats.median_s), Some(stats.p90_s)),
+        None => (None, None),
+    }
+}
+
+/// Median and p90 reported staleness from the stored rows of one source/day.
+fn latency_for_rows(rows: &[StoredRow]) -> (Option<f64>, Option<f64>) {
+    let mut latencies: Vec<f64> = rows
+        .iter()
+        .filter_map(|row| row.latency_s.map(f64::from))
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .collect();
+    match sorted_median_p90(&mut latencies) {
+        Some((median, p90)) => (Some(median), Some(p90)),
         None => (None, None),
     }
 }

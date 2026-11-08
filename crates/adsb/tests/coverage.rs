@@ -19,6 +19,7 @@ fn sample(offset_ms: i64) -> TrackSample {
         ground_speed_m_per_s: None,
         track_deg: None,
         vertical_rate_m_per_s: None,
+        latency_s: None,
         flags: 0,
     }
 }

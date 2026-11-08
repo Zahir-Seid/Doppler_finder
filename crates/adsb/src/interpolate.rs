@@ -132,6 +132,7 @@ impl TrackInterpolator {
                 second.vertical_rate_m_per_s,
                 fraction,
             ),
+            latency_s: lerp_optional(first.latency_s, second.latency_s, fraction),
             flags: first.flags | second.flags | crate::tracks::FLAG_INTERPOLATED,
         })
     }
@@ -371,6 +372,7 @@ mod tests {
                     ground_speed_m_per_s: None,
                     track_deg: None,
                     vertical_rate_m_per_s: None,
+                    latency_s: None,
                     flags: 0,
                 })
                 .collect(),

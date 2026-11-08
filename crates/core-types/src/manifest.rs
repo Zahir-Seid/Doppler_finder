@@ -27,6 +27,13 @@ pub struct DataSource {
     pub sampling_median_s: f64,
     /// 90th-percentile interval between samples, in seconds.
     pub sampling_p90_s: f64,
+    /// Median reported position staleness in seconds, when the source reports
+    /// it (FR-DA-01 latency).
+    #[serde(default)]
+    pub latency_median_s: Option<f64>,
+    /// 90th-percentile reported position staleness in seconds.
+    #[serde(default)]
+    pub latency_p90_s: Option<f64>,
 }
 
 /// How the atmosphere was obtained (SDD T-2).
@@ -149,6 +156,8 @@ mod tests {
                 file_sha256: "00".repeat(32),
                 sampling_median_s: 1.0,
                 sampling_p90_s: 2.5,
+                latency_median_s: Some(0.4),
+                latency_p90_s: Some(1.2),
             }],
             atmosphere: AtmosphereSource::StandardFallback,
             models: ModelVersions {

@@ -25,6 +25,7 @@ fn sample(utc_ms: i64, lat_deg: f64, lon_deg: f64) -> TrackSample {
         ground_speed_m_per_s: Some(250.5),
         track_deg: Some(90.25),
         vertical_rate_m_per_s: Some(-1.75),
+        latency_s: None,
         flags: FLAG_MLAT,
     }
 }
@@ -464,4 +465,39 @@ fn fr_da_04_interpolated_and_original_flags_round_trip() {
         samples.get(1).expect("second").flags,
         FLAG_MLAT | FLAG_INTERPOLATED
     );
+}
+
+#[test]
+fn fr_da_04_latency_round_trips_and_feeds_ingest_stats() {
+    let directory = tempfile::tempdir().expect("temp dir");
+    let store = TrackStore::new(directory.path());
+    let mut first = sample(DAY_START_MS + 1_000, 37.0, -122.0);
+    first.latency_s = Some(1.0);
+    let mut second = sample(DAY_START_MS + 31_000, 37.1, -122.1);
+    second.latency_s = Some(3.0);
+    let tracks = vec![track(
+        TrackSourceKind::AdsbLol,
+        "abc123",
+        None,
+        None,
+        vec![first, second],
+    )];
+    store.write_tracks(&tracks).expect("tracks write");
+
+    let replay = store.read_tracks(&query()).expect("tracks replay");
+    let latencies: Vec<f64> = replay
+        .first()
+        .expect("track")
+        .samples
+        .iter()
+        .filter_map(|sample| sample.latency_s)
+        .collect();
+    assert_eq!(latencies.len(), 2);
+    assert!((latencies.first().expect("first") - 1.0).abs() < 1.0e-6);
+    assert!((latencies.get(1).expect("second") - 3.0).abs() < 1.0e-6);
+
+    let runs = store.ingest_runs().expect("ingest runs");
+    let run = runs.first().expect("one run");
+    assert_eq!(run.latency_median_s, Some(2.0));
+    assert_eq!(run.latency_p90_s, Some(3.0));
 }

@@ -63,6 +63,11 @@ pub struct TrackSample {
     pub track_deg: Option<f64>,
     /// Reported vertical rate in metres per second, positive climbing.
     pub vertical_rate_m_per_s: Option<f64>,
+    /// Reported staleness of the position in seconds: the gap between when the
+    /// source last heard the aircraft and when the position was measured
+    /// (FR-DA-01 latency). `None` when the source does not report it.
+    #[serde(default)]
+    pub latency_s: Option<f64>,
     /// Quality flags, for example [`FLAG_MLAT`].
     pub flags: u8,
 }
@@ -104,6 +109,7 @@ impl FlightTrack {
                 || sample
                     .vertical_rate_m_per_s
                     .is_some_and(|value| !value.is_finite())
+                || sample.latency_s.is_some_and(|value| !value.is_finite())
             {
                 return Err(crate::AdsbError::InvalidTrack(
                     "coordinate, altitude, speed or rate is not finite".to_owned(),
