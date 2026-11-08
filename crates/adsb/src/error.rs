@@ -16,4 +16,25 @@ pub enum AdsbError {
     /// A track contained invalid coordinates or times.
     #[error("invalid track data: {0}")]
     InvalidTrack(String),
+    /// A region or time window is malformed.
+    #[error("invalid track query: {0}")]
+    InvalidQuery(String),
+    /// A request URL is malformed or fails the transport policy.
+    #[error("invalid HTTP request: {0}")]
+    InvalidRequest(String),
+    /// A request host is not on the archive allow-list.
+    #[error("host `{0}` is not allow-listed for this archive")]
+    DisallowedHost(String),
+    /// The archive returned a non-success HTTP status.
+    #[error("archive returned HTTP status {status}")]
+    HttpStatus {
+        /// Response status code.
+        status: u16,
+    },
+    /// The archive response exceeded the configured size cap.
+    #[error("archive response exceeds the {limit_bytes}-byte cap")]
+    ResponseTooLarge {
+        /// Maximum body size in bytes.
+        limit_bytes: usize,
+    },
 }
