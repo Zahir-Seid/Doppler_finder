@@ -180,3 +180,19 @@ holds implementation-level questions and cross-document risks.
 - **Resolution:** Source a fuller ICAO type-designator catalogue (or a
   curated prop/jet list) and decide whether legs split on a measured gap
   threshold; record both in the SDD or a proposal.
+
+## Q-16: Which latency does FR-DA-01 mean?
+
+- **Status:** Open, needs a decision when the full-day ingest path lands.
+- **Context:** FR-DA-01 asks the manifest to record "latency". ADSB-05's first
+  increment records *reported position staleness* — the gap between a state's
+  `time_position` and `last_contact` — as `TrackSample::latency_s`, surfaced as
+  `DataSource::latency_median_s`/`latency_p90_s`. A different quantity,
+  *archive-publication latency* (how long after the fact a dump or API
+  response became available), is not measurable from the payload and is not
+  recorded.
+- **Default:** Keep the staleness fields as implemented; treat
+  publication latency as part of the full-day ingest work (ADSB-05 remainder).
+- **Resolution:** Decide whether FR-DA-01's latency means position staleness,
+  publication delay, or both; if both, extend `DataSource` when the archive
+  ingest path exists.

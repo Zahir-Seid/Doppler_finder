@@ -40,10 +40,13 @@ One row per sample, following SDD 9.2:
 | `source` | UTF-8 | `opensky` or `adsblol` |
 | `flags` | UInt8 | Quality flags such as MLAT or interpolated |
 | `callsign` | UTF-8, nullable | Extra column so replay returns complete tracks |
+| `latency_s` | Float32, nullable | Reported position staleness in seconds (schema v2) |
 
 SDD 9.2 specifies float32 for the altitude, speed, track and rate columns; the
 store follows that, so those values round-trip within float32 precision.
 Latitude, longitude and the timestamp are float64/int64 and round-trip exactly.
+`latency_s` was added in schema version 2; the reader treats a missing column
+as "no staleness reported", so v1 files still replay.
 Files use SNAPPY compression and carry `doppler.schema_version`,
 `doppler.source` and `doppler.date` in Parquet key-value metadata.
 

@@ -42,8 +42,8 @@ truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
 (harmonics combined coherently in the fit), `FR-DM-05` (direct estimation on
 faint events), `FR-DM-06` (quality score and gate), `FR-DA-02` (geoid and
 DEM) and `FR-DA-04` (Parquet track store and offline replay). The v0 partial
-rows are `FR-DA-01` (OpenSky states client; full-day history and latency
-pending), `FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
+rows are `FR-DA-01` (OpenSky states client; full-day history pending),
+`FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
 `NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
 `FR-DM-01` closed with
 EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02, `FR-DM-05` with EVT-03,
@@ -57,12 +57,12 @@ whitening, detection and direct fitting to a retained quality assessment.
 GEO-01 adds the EGM96 geoid grid and height conversion; GEO-02 adds the DEM
 sampler, SRTM `.hgt` loading and observer-height composition, closing
 `FR-DA-02`. ADSB-01 adds the allow-listed OpenSky states client and measured
-sampling statistics; `FR-DA-01` stays partial until full-day history and
-latency recording land. ADSB-02 adds the partitioned Parquet track store and
+sampling statistics; `FR-DA-01` stays partial until full-day history lands.
+Reported position latency (`latency_s` → `DataSource::latency_*`) landed with
+ADSB-05's first increment. ADSB-02 adds the partitioned Parquet track store and
 offline replay, closing `FR-DA-04`. ADSB-03 adds Hermite interpolation for
 the light-time solver, derived legs with engine class and closest-approach
-prediction; `FR-DA-01` stays partial until full-day history and latency
-recording land. ADSB-04 adds region support flags from measured coverage,
+prediction. ADSB-04 adds region support flags from measured coverage,
 closing T-4's flag half (the Addis measurement itself stays open).
 
 ### 1.2 Code state
@@ -85,8 +85,8 @@ closing T-4's flag half (the Addis measurement itself stays open).
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 296 tests pass (37 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 40 adsb, 52 sim unit,
+the full test suite pass. 299 tests pass (37 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 43 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -460,8 +460,10 @@ tests; use recorded fixtures.
   and nearest-rank 90th percentile of positive sample gaps and builds the
   `DataSource` manifest record. No test opens a socket; the client is exercised
   through a scripted transport and a documented-shape OpenSky fixture. The
-  REST endpoint serves recent states only, so full-day history and latency
-  recording remain open for the Trino/dump ingest work.
+  REST endpoint serves recent states only, so full-day history remains open
+  for the Trino/dump ingest work. Reported position latency is recorded:
+  `TrackSample::latency_s` carries the `time_position`/`last_contact` gap and
+  `sampling_stats` surfaces median/p90 into `DataSource` (ADSB-05).
   Tests: `crates/adsb/tests/da_01.rs`, covering parsing, window filtering,
   malformed payloads, empty states, allow-list rejection, the size cap, bounded
   and non-retryable responses, request construction, query validation and
@@ -511,12 +513,13 @@ tests; use recorded fixtures.
   flagged standard atmosphere when no sample exists. The live fetch adapter
   is separate work; tests replay a recorded fixture only. Tests:
   `crates/acoustics/tests/weather.rs`.
-- **ADSB-05** `[ ]` Full-day history ingest and latency recording (FR-DA-01).
-  The OpenSky REST client serves recent states only. Add a `TrackSource`
-  implementation for full-day history — the adsb.lol daily dumps or the
-  OpenSky Trino interface — writing into the existing `TrackStore`, and
-  record per-source latency in the manifest's `DataSource` record so
-  `FR-DA-01` can close. Recorded fixtures only; no live fetch in tests.
+- **ADSB-05** `[ ]` Full-day history ingest (FR-DA-01). Position-latency
+  recording landed first: `TrackSample::latency_s`, the Parquet `latency_s`
+  column (schema v2) and `DataSource::latency_median_s`/`latency_p90_s`.
+  Remaining: a `TrackSource` implementation for full-day history — the
+  adsb.lol daily dumps or the OpenSky Trino interface — writing into the
+  existing `TrackStore`, plus archive-publication latency if FR-DA-01 means
+  that too (Q-16). Recorded fixtures only; no live fetch in tests.
 - **ACO-02** `[ ]` Live weather fetch adapter (FR-DA-03).
   A transport-guarded fetch for a public weather archive (for example
   Open-Meteo) producing the normalized payload `acoustics::weather` already
@@ -757,8 +760,9 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ADSB-05** full-day history ingest and latency recording — closes
-   `FR-DA-01`; **ACO-02** live weather fetch — closes `FR-DA-03`. Either can
+1. **ADSB-05** full-day history ingest — closes `FR-DA-01` (position latency
+   already recorded; Q-16 tracks the publication-latency question);
+   **ACO-02** live weather fetch — closes `FR-DA-03`. Either can
    go first; both need a recorded fixture and an allow-listed host.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.

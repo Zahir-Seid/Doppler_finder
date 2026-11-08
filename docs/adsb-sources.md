@@ -85,9 +85,17 @@ are ignored because they do not describe the source's sampling interval.
 record, so a result is tied to the measured intervals that produced it
 (FR-DA-01, NFR-04).
 
-Source latency is still not recorded. The Parquet cache records measured
-sampling intervals per source and day; a fetch-latency field belongs with the
-ingest-run statistics once the archive path records response times.
+Source latency is recorded as reported position staleness. OpenSky state
+vectors carry `time_position` and `last_contact`; `TrackSample::latency_s`
+stores their difference in seconds, and `sampling_stats` reports the median
+and nearest-rank 90th percentile into `DataSource::latency_median_s` /
+`latency_p90_s` in the run manifest (FR-DA-01). Sources that do not report a
+staleness pair leave the fields empty rather than guessing. The Parquet store
+keeps the per-sample value in the `latency_s` column (schema v2) and
+`IngestRun` recomputes the same percentiles per source and day on replay.
+Archive-publication latency — how long after the fact a dump or API response
+became available — is a different quantity and is still not measured; it
+belongs with the full-day ingest path.
 
 ## Test fixture
 
