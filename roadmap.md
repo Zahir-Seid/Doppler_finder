@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-08
-- **Last recorded commit:** `b88df24` (`develop`)
+- **Last recorded commit:** `c8a8e58` (`develop`)
 - **Current milestone:** M4 (ADS-B, terrain and atmosphere); M3 closed
 - **Release under construction:** v0 research core
 
@@ -62,7 +62,8 @@ latency recording land. ADSB-02 adds the partitioned Parquet track store and
 offline replay, closing `FR-DA-04`. ADSB-03 adds Hermite interpolation for
 the light-time solver, derived legs with engine class and closest-approach
 prediction; `FR-DA-01` stays partial until full-day history and latency
-recording land.
+recording land. ADSB-04 adds region support flags from measured coverage,
+closing T-4's flag half (the Addis measurement itself stays open).
 
 ### 1.2 Code state
 
@@ -74,7 +75,7 @@ recording land.
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
-| `adsb` | Partial | `TrackSource`, track model; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics; Hermite interpolation, derived legs and closest-approach prediction |
+| `adsb` | Partial | `TrackSource`, track model; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics; Hermite interpolation, derived legs, closest-approach prediction and region support flags |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
 | `store` | Types only | Job records/repository trait, limits, retention |
@@ -84,8 +85,8 @@ recording land.
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 284 tests pass (30 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 35 adsb, 52 sim unit,
+the full test suite pass. 289 tests pass (30 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 40 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -495,9 +496,14 @@ tests; use recorded fixtures.
   knot exactness, a curved-leg accuracy check against the chord, leg fields
   and engine classes, closest-approach geometry and input rejection. Model
   notes are in `docs/track-model.md`.
-- **ADSB-04** `[ ]` Source/region support flags (T-4).
-  Mark a region unsupported when coverage is insufficient; never silently return
-  an empty track set as if it were complete.
+- **ADSB-04** `[x]` Source/region support flags (T-4).
+  `assess_coverage` reduces an ingest result to `Supported`,
+  `Insufficient` or `Unsupported` from measured sampling gaps, so an empty
+  track set is never silently treated as complete. The median-gap bound
+  (`MAX_SUPPORTED_MEDIAN_GAP_S` = 10 s) is `PROVISIONAL(T-4)` pending the
+  measured per-source statistics; unmeasured regions stay `Unsupported`,
+  matching the T-4 default for Addis. Tests: `crates/adsb/tests/coverage.rs`,
+  covering empty, dense, sparse, single-sample and boundary ingests.
 - **ACO-01** `[ ]` Measured atmosphere adapter (FR-DA-03).
   Ingest temperature and wind for the region/date, average the along-path wind,
   resolve the sign convention in Q-10, and flag the standard-atmosphere fallback
@@ -737,8 +743,7 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ADSB-04** source/region support flags; **ACO-01** measured atmosphere
-   adapter can follow in parallel if a second agent is free.
+1. **ACO-01** measured atmosphere adapter.
 2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 

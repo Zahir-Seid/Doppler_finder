@@ -62,3 +62,13 @@ needed because the emission time is already known; the bracketed solver in
 
 The result carries the emission time of minimum range, the heard time, the
 slant range and the horizontal speed over ground at closest approach.
+
+## Region support flags
+
+`adsb::assess_coverage` implements the T-4 flag half of ADSB-04: it reduces
+an ingest result to `Supported`, `Insufficient` or `Unsupported` from the
+measured sampling gaps, so an empty track set is never silently treated as a
+complete one. `Unsupported` (empty ingest) maps to `no_adsb_coverage` and
+`Insufficient` (median gap above `MAX_SUPPORTED_MEDIAN_GAP_S`, provisional at
+10 s pending T-4 measurement) maps to `region_unsupported` downstream; the
+code mapping lives in `api`.
