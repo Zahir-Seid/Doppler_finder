@@ -17,6 +17,7 @@ version = "0.0.0"
 dependencies = [
  "arrow",
  "core-types",
+ "geodesy",
  "parquet",
  "reqwest",
  "serde",

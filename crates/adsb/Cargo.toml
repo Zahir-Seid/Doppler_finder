@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 arrow = { workspace = true }
 core-types = { workspace = true }
+geodesy = { workspace = true }
 parquet = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

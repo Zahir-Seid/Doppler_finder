@@ -16,6 +16,9 @@ pub enum AdsbError {
     /// A track contained invalid coordinates or times.
     #[error("invalid track data: {0}")]
     InvalidTrack(String),
+    /// A geodetic conversion failed.
+    #[error("geodesy error: {0}")]
+    Geodesy(#[from] geodesy::GeodesyError),
     /// The Parquet track store could not be read or written.
     #[error("track store error: {0}")]
     Store(String),
