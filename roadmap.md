@@ -5,7 +5,7 @@ not redefine requirements. If this file disagrees with the PRD, SDD or working
 norms, those documents win.
 
 - **Last updated:** 2026-11-08
-- **Last recorded commit:** `c8a8e58` (`develop`)
+- **Last recorded commit:** `f0355bb` (`develop`)
 - **Current milestone:** M4 (ADS-B, terrain and atmosphere); M3 closed
 - **Release under construction:** v0 research core
 
@@ -71,7 +71,7 @@ closing T-4's flag half (the Addis measurement itself stays open).
 | --- | --- | --- |
 | `core-types` | Usable | Units, two-clock bridge, IDs, cancellation, manifests and SHA-256 |
 | `geodesy` | Partial | WGS84, ECEF/ENU forward and inverse; EGM96 grid with bilinear sampling and orthometric/ellipsoidal conversion; DEM text and SRTM `.hgt` grids with void handling and observer-height composition |
-| `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver |
+| `acoustics` | Partial | Atmosphere, emission-time Doppler, retarded-time solver, weather adapter with path-projected wind and flagged fallback |
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
@@ -85,7 +85,7 @@ closing T-4's flag half (the Addis measurement itself stays open).
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 289 tests pass (30 acoustics, 29 core-types, 74 dsp
+the full test suite pass. 296 tests pass (37 acoustics, 29 core-types, 74 dsp
 unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 40 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
@@ -504,10 +504,13 @@ tests; use recorded fixtures.
   measured per-source statistics; unmeasured regions stay `Unsupported`,
   matching the T-4 default for Addis. Tests: `crates/adsb/tests/coverage.rs`,
   covering empty, dense, sparse, single-sample and boundary ingests.
-- **ACO-01** `[ ]` Measured atmosphere adapter (FR-DA-03).
-  Ingest temperature and wind for the region/date, average the along-path wind,
-  resolve the sign convention in Q-10, and flag the standard-atmosphere fallback
-  in the manifest. Tests use a recorded weather fixture, never the network.
+- **ACO-01** `[x]` Measured atmosphere adapter (FR-DA-03).
+  `acoustics::weather` ingests the normalized weather payload, averages
+  conditions and the wind vector over a window, projects the wind onto the
+  source-observer path with the Q-10 sign fixed, and falls back to the
+  flagged standard atmosphere when no sample exists. The live fetch adapter
+  is separate work; tests replay a recorded fixture only. Tests:
+  `crates/acoustics/tests/weather.rs`.
 
 **Exit:** a fixture archive ingests, caches and replays offline; the manifest
 records source, version, hash and sampling statistics; terrain and geoid affect
@@ -743,8 +746,7 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ACO-01** measured atmosphere adapter.
-2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
+1. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
    the tools are not installed on every machine.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are

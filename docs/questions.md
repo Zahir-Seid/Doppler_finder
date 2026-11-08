@@ -89,16 +89,19 @@ holds implementation-level questions and cross-document risks.
 
 ## Q-10: Wind sign and path averaging
 
-- **Status:** Open until the weather source is chosen (v1).
+- **Status:** Sign resolved in ACO-01; averaging validation still open.
 - **Context:** SDD section 4 says wind enters as the component along the
   propagation path, averaged along the path from public weather data, but it
   fixes neither the sign nor how the average is formed.
 - **Default:** `Atmosphere::effective_speed_m_per_s` takes one component,
   positive when the wind blows from the source towards the observer, so it
-  shortens the propagation time. Path averaging waits for the weather source;
-  the simulator injects the component directly.
-- **Resolution:** Fix the sign in the weather adapter's documentation and
-  validate the averaging against the simulator's wind scenario (SDD 7).
+  shortens the propagation time.
+- **Resolution:** `acoustics::weather` fixes the convention: wind vectors are
+  the direction air moves toward (east/north positive), wind is averaged as a
+  vector over the window, and `Wind::towards` projects it onto the
+  source-observer path with the same sign. Still open: validating the path
+  average against the simulator's wind scenario (SDD 7) once the live weather
+  source lands.
 
 ## Q-11: Noise colour and SNR convention
 
