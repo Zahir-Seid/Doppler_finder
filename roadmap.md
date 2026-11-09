@@ -620,11 +620,16 @@ terrain and time.
   `PROVISIONAL_KAPPA = 1.0` until FR-SIM-02/04 produce real `d²` samples;
   real-clip validation stays held out per T-6. Tests:
   `crates/search/tests/src_09.rs`.
-- **SRC-10** `[ ]` Verdicts and refusal (FR-SL-02, FR-OUT-01).
-  Implement the SDD 6.5 table: mass thresholds, at least two independent events
-  or one event plus known time/silence, 95% semi-major axis ≤ 1 km, no truncation,
-  no veto. One event with no known time is always `NotLocatable`. Mirror pairs are
-  at most `Ambiguous`.
+- **SRC-10** `[x]` Verdicts and refusal (FR-SL-02, FR-OUT-01).
+  `search::verdict::decide` applies the full SDD 6.5 table: veto and
+  single-event-no-known-time refusals, the mass bar, then every locatable
+  condition (≥2 independent events or one event + known time + silence,
+  95% semi-major ≤ 1 km via `ellipse_semi_major_95`, no truncation, no
+  significant rival cluster). Each failure adds a stable `ReasonCode`
+  (snake_case for the result payload) and caps at `Ambiguous`; mirror
+  pairs stay ambiguous through `rival_min`. `VerdictThresholds` gained
+  `rival_min` (0.05) and `max_semi_major_95_m` (1 km), all provisional.
+  Tests: `crates/search/tests/src_10.rs`.
 - **SRC-11** `[ ]` Ranked alternatives (FR-SL-05).
   Report ranked clusters with posterior mass and the margin over the best rival.
 - **SRC-12** `[ ]` Truncation handling (FR-SL-01).

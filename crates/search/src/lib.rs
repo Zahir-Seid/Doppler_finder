@@ -37,4 +37,7 @@ pub use silence::{
     DetectionModel, PROVISIONAL_HALF_RANGE_M, PROVISIONAL_UNKNOWN_PROP_PRIOR, PROVISIONAL_WIDTH_M,
     SilencePass, silence_log_likelihood,
 };
-pub use verdict::{Verdict, VerdictThresholds};
+pub use verdict::{
+    ReasonCode, Verdict, VerdictDecision, VerdictInput, VerdictThresholds, decide,
+    ellipse_semi_major_95,
+};
