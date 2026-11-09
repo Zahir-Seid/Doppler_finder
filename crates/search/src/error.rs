@@ -19,4 +19,7 @@ pub enum SearchError {
     /// A geodesy lookup (terrain, geoid, ellipsoid) failed.
     #[error("geodesy error: {0}")]
     Geodesy(String),
+    /// A likelihood covariance was not positive definite.
+    #[error("covariance is not positive definite")]
+    InvalidCovariance,
 }

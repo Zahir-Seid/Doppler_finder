@@ -6,10 +6,12 @@
 
 pub mod error;
 pub mod estimate;
+pub mod likelihood;
 pub mod predict;
 pub mod verdict;
 
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
+pub use likelihood::{ErrorBudget, event_log_likelihood};
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use verdict::{Verdict, VerdictThresholds};

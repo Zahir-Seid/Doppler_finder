@@ -1902,6 +1902,7 @@ version = "0.0.0"
 dependencies = [
  "adsb",
  "core-types",
+ "events",
  "geodesy",
  "serde",
  "thiserror",

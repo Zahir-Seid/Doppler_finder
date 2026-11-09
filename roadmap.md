@@ -554,9 +554,12 @@ terrain and time.
   slant minimum and light-time heard UTC; `ellipsoidal_track` applies the
   geoid correction once per flight to baro-derived (`FLAG_GEOM_FROM_BARO`)
   heights before the observer grid loop. Tests: `crates/search/tests/src_01.rs`.
-- **SRC-02** `[ ]` Event likelihood (FR-SL-01).
-  Gaussian residual on `(v, d)` with `Σ_vd + Σ_adsb + Σ_model`; `f0` is a
-  nuisance parameter; compute the log-likelihood.
+- **SRC-02** `[x]` Event likelihood (FR-SL-01).
+  `search::event_log_likelihood` scores the `(v, d)` residual of an
+  `EventFit` against a `Prediction` with `Σ_vd + Σ_adsb + Σ_model`;
+  `f0` is marginalized through the fit covariance's `(v, d)` sub-block.
+  `ErrorBudget` carries `PROVISIONAL` diagonal `Σ_adsb`/`Σ_model` pending
+  the FR-SIM-02 measurements. Tests: `crates/search/tests/src_02.rs`.
 - **SRC-03** `[ ]` Clock term (FR-SL-01).
   Each event implies a recording start `s_i`; events must agree within
   `σ_s,i`; a known time adds one Gaussian term. This replaces hard offset
