@@ -7,6 +7,7 @@
 
 pub mod closest;
 pub mod coverage;
+pub mod dump;
 pub mod error;
 pub mod http;
 pub mod interpolate;
@@ -19,6 +20,7 @@ pub mod tracks;
 
 pub use closest::{ClosestApproach, closest_approach};
 pub use coverage::{CoverageReport, MAX_SUPPORTED_MEDIAN_GAP_S, RegionSupport, assess_coverage};
+pub use dump::{AdsbLolArchive, DumpSpec, DumpStats, ingest_path, ingest_reader};
 pub use error::AdsbError;
 pub use http::{HttpPolicy, HttpRequest, HttpResponse, HttpTransport, ReqwestTransport};
 pub use interpolate::{TrackInterpolator, interpolate};
@@ -27,4 +29,7 @@ pub use opensky::{OPENSKY_HOST, OpenSkyClient, opensky_states_url, parse_opensky
 pub use source::{RegionQuery, TrackSource};
 pub use stats::{SamplingStats, sampling_stats};
 pub use track_store::{FileDigest, IngestRun, TRACK_STORE_SCHEMA_VERSION, TrackStore};
-pub use tracks::{FLAG_INTERPOLATED, FLAG_MLAT, FlightTrack, TrackSample, TrackSourceKind};
+pub use tracks::{
+    FLAG_GEOM_FROM_BARO, FLAG_INTERPOLATED, FLAG_MLAT, FLAG_NEW_LEG, FLAG_NEW_LEG_AFTER,
+    FLAG_STALE, FLAG_TISB, FlightTrack, TrackSample, TrackSourceKind,
+};

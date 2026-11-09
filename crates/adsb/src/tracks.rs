@@ -8,6 +8,19 @@ pub const FLAG_MLAT: u8 = 1 << 0;
 /// Bit 1 of [`TrackSample::flags`]: sample was interpolated rather than
 /// received from the source.
 pub const FLAG_INTERPOLATED: u8 = 1 << 1;
+/// Position from a Mode-S radar without ADS-B out (TIS-B), as reported by
+/// readsb archive sources.
+pub const FLAG_TISB: u8 = 1 << 2;
+/// The source marked the position stale or estimated (readsb flag bit 1).
+pub const FLAG_STALE: u8 = 1 << 3;
+/// A readsb new-leg marker or ground report precedes this sample.
+pub const FLAG_NEW_LEG: u8 = 1 << 4;
+/// A readsb new-leg marker or ground report follows this sample.
+pub const FLAG_NEW_LEG_AFTER: u8 = 1 << 5;
+/// The archive reported only a barometric altitude, so
+/// `geometric_altitude_m` was filled from it as an approximation (readsb
+/// rows without `alt_geom_ft`).
+pub const FLAG_GEOM_FROM_BARO: u8 = 1 << 6;
 
 /// The archive a track came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
