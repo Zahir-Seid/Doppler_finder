@@ -11,7 +11,10 @@ pub mod fit;
 pub mod quality;
 pub(crate) mod sampling;
 
-pub use detect::{Detection, DetectorConfig, EventHypothesis, GridRange, detect};
+pub use detect::{
+    DetectAllConfig, Detection, DetectorConfig, EventHypothesis, GridRange, PROVISIONAL_MAX_EVENTS,
+    detect, detect_events,
+};
 pub use direct::{DirectConfig, fit_event_direct};
 pub use error::EventError;
 pub use fit::{

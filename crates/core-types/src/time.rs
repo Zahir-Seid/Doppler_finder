@@ -69,6 +69,18 @@ impl fmt::Display for AudioSeconds {
 }
 
 impl UtcMillis {
+    /// Current wall-clock time as milliseconds since the Unix epoch.
+    ///
+    /// Saturates at the representable range if the system clock is before the
+    /// epoch or beyond `i64` milliseconds.
+    #[must_use]
+    pub fn now() -> Self {
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        Self(i64::try_from(millis).unwrap_or(i64::MAX))
+    }
+
     /// Milliseconds since the Unix epoch as a bare `i64`.
     pub const fn get(self) -> i64 {
         self.0

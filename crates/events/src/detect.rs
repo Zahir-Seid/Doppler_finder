@@ -458,6 +458,125 @@ fn null_views(map: &ZMap, config: &DetectorConfig) -> Vec<MapView> {
     views
 }
 
+/// PROVISIONAL(G1): cap on accepted events per recording. Matches the
+/// reference funnel's measurement budget until the G1 suite sets it.
+pub const PROVISIONAL_MAX_EVENTS: usize = 24;
+
+/// Z value written into suppressed cells. Finite so [`ZMap::from_parts`]
+/// accepts the masked map; far below any real score so no template survives.
+const SUPPRESSED_Z: f32 = -1.0e30;
+
+/// Settings for [`detect_events`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DetectAllConfig {
+    /// Per-detection search settings.
+    pub detector: DetectorConfig,
+    /// Maximum accepted events returned.
+    pub max_events: usize,
+    /// Half-width of the suppression mask in frequency bins around each
+    /// accepted curve.
+    pub mask_half_width_bins: usize,
+}
+
+impl Default for DetectAllConfig {
+    fn default() -> Self {
+        Self {
+            detector: DetectorConfig::default(),
+            max_events: PROVISIONAL_MAX_EVENTS,
+            mask_half_width_bins: 4,
+        }
+    }
+}
+
+impl DetectAllConfig {
+    /// Check the settings before a search.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`DetectorConfig::validate`] plus
+    /// [`EventError::ZeroLength`] for a zero event cap or mask width.
+    pub fn validate(&self) -> Result<(), EventError> {
+        self.detector.validate()?;
+        if self.max_events == 0 || self.mask_half_width_bins == 0 {
+            return Err(EventError::ZeroLength);
+        }
+        Ok(())
+    }
+}
+
+/// Detect every accepted Doppler pass in one map.
+///
+/// [`detect`] returns only the single best hypothesis, so this driver runs it
+/// repeatedly: each accepted detection's template curve is suppressed in the
+/// z values (a finite, very negative fill — whitening is not recomputed) and
+/// the search repeats until a detection is rejected or `max_events` is
+/// reached. Suppression is deliberately generous — `mask_half_width_bins`
+/// covers the grid spacing between the detected template and the true curve —
+/// at the cost of possibly masking a second aircraft whose curve overlaps the
+/// first; overlapping curves are ambiguous evidence anyway.
+///
+/// Detections come back strongest-first because each iteration takes the
+/// current best. The whole search is deterministic.
+///
+/// # Errors
+///
+/// Returns [`EventError`] when the configuration is invalid, the map is
+/// empty, or a rebuilt suppressed map fails validation.
+pub fn detect_events(map: &ZMap, config: &DetectAllConfig) -> Result<Vec<Detection>, EventError> {
+    config.validate()?;
+    let mut values = map.values().to_vec();
+    let mut found = Vec::new();
+    for _ in 0..config.max_events {
+        let view = ZMap::from_parts(*map.config(), map.frame_times_s().to_vec(), values.clone())?;
+        let detection = detect(&view, &config.detector)?;
+        if !detection.accepted {
+            break;
+        }
+        suppress_curve(
+            &mut values,
+            map,
+            &detection.hypothesis,
+            config.detector.sound_speed_m_per_s,
+            config.mask_half_width_bins,
+        );
+        found.push(detection);
+    }
+    Ok(found)
+}
+
+/// Fill the cells under `hypothesis`'s template curve with [`SUPPRESSED_Z`].
+fn suppress_curve(
+    values: &mut [f32],
+    map: &ZMap,
+    hypothesis: &EventHypothesis,
+    sound_speed_m_per_s: f64,
+    half_width_bins: usize,
+) {
+    let bins = map.bin_count();
+    let width_hz = map.config().bin_width_hz();
+    for (frame, &time_s) in map.frame_times_s().iter().enumerate() {
+        let Some(freq_hz) =
+            hypothesis.observed_hz(time_s - hypothesis.heard_at.0, sound_speed_m_per_s)
+        else {
+            continue;
+        };
+        if !freq_hz.is_finite() || freq_hz <= 0.0 || width_hz <= 0.0 {
+            continue;
+        }
+        let center = (freq_hz / width_hz).floor() as usize;
+        let low = center.saturating_sub(half_width_bins);
+        let high = center
+            .saturating_add(half_width_bins)
+            .min(bins.saturating_sub(1));
+        let start = frame.saturating_mul(bins);
+        for bin in low..=high {
+            if let Some(slot) = start.checked_add(bin).and_then(|i| values.get_mut(i)) {
+                *slot = SUPPRESSED_Z;
+            }
+        }
+    }
+}
+
 /// Empirical `1 - alpha` quantile of a sample, reordering it in place.
 fn quantile(samples: &mut [f64], alpha: f64) -> Option<f64> {
     if samples.is_empty() {

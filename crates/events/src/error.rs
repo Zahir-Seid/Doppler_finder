@@ -84,4 +84,7 @@ pub enum EventError {
     /// The emission-time model has no real solution for the fitted geometry.
     #[error("the Doppler model has no real solution for this geometry")]
     ModelUndefined,
+    /// A spectral-map failure while rebuilding a suppressed view.
+    #[error("spectral map failure: {0}")]
+    Dsp(#[from] dsp::DspError),
 }

@@ -661,10 +661,19 @@ mirror pair is `Ambiguous`; 95% coverage is measured and calibrated.
 Read SDD sections 9.4, 10.1 and 10.4. This milestone produces the v0 artifacts
 needed by G1/G2.
 
-- **PIP-01** `[ ]` Stage orchestration (FR-OUT-04).
-  Run `ingest → decode → detect → fit → match → localize → render` with a
-  `JobCtx`, cancellation checks at boundaries and inside long loops, progress
-  callbacks and wall-time budgets.
+- **PIP-01** `[x]` Stage orchestration (FR-OUT-04).
+  `pipeline::analyze` runs `ingest → decode → detect → fit → match →
+  localize` on a `JobCtx`: `AnalyzeSpec` bundles a `MediaDecoder`, front-end
+  configs, `LocalizeSpec` (tracks, grid, coarse/posterior/refine envs,
+  budgets, verdict thresholds, calibration). Cancellation is checked at every
+  stage boundary and inside the fit loop; the job deadline is enforced at the
+  same points and the mode wall-time limit after the last stage. Every stage
+  reports `StageTiming`s and `ProgressSink` completions. `events::detect_events`
+  is the new multi-event driver the detect stage needs: it suppresses each
+  accepted curve in the z-map and re-searches until rejection or the event
+  cap. The silence term is honestly absent (`None` per candidate) until a
+  per-candidate silence pass is wired. Render is PIP-05. Tests:
+  `crates/pipeline/tests/pip_01.rs`.
 - **PIP-02** `[ ]` Run manifest (NFR-04).
   Build and write the JSON from SDD 9.4: manifest version, git commit, crate
   versions, parameter hash, seed, data sources with version/hash/sampling,

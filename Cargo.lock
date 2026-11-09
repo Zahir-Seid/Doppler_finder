@@ -1494,9 +1494,14 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 name = "pipeline"
 version = "0.0.0"
 dependencies = [
+ "adsb",
  "core-types",
+ "dsp",
+ "events",
+ "geodesy",
  "search",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
