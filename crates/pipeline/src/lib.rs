@@ -8,6 +8,7 @@ pub mod budget;
 pub mod error;
 pub mod manifest;
 pub mod progress;
+pub mod result;
 pub mod run;
 pub mod stages;
 
@@ -18,6 +19,10 @@ pub use manifest::{
     RunManifest, StageTiming, build_manifest, parameter_hash, sha256_hex,
 };
 pub use progress::ProgressSink;
+pub use result::{
+    AircraftEvidence, AlternativeEvidence, EventEvidence, Location, OutputMode, PublicCell,
+    ResultPayload,
+};
 pub use run::{
     AnalyzeOutcome, AnalyzeSpec, FittedEvent, FrontEndSpec, LocalizeOutcome, LocalizeSpec, analyze,
 };

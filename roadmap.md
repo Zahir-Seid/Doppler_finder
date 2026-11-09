@@ -683,10 +683,15 @@ needed by G1/G2.
   `parameter_hash` SHA-256s the canonical JSON of any serializable parameter
   set; `RunManifest::to_json_and_hash` produces the stored JSON + digest.
   Tests: `crates/pipeline/tests/pip_02.rs`.
-- **PIP-03** `[ ]` Result payload and manifest export (FR-OUT-04).
-  Export verdict, ranking, evidence and manifest JSON. Research mode may carry
-  full geometry; the serialized shape is fixed here so the public type cannot
-  later leak exact coordinates.
+- **PIP-03** `[x]` Result payload and manifest export (FR-OUT-04).
+  `pipeline::result::ResultPayload` serializes the SDD 10.4 shape: verdict,
+  reason codes, manifest SHA-256, per-event quality evidence, matched-
+  aircraft evidence (resolved from `LocalizeOutcome::matched_track_indices`,
+  added in PIP-01), ranked alternatives with margins, truncation flag and
+  figure links. `Location` is an enum — `Public` carries only a coarse
+  `PublicCell` plus mass, `Research` adds observer, calibrated ellipse and
+  implied start — so the public variant has no field that could leak exact
+  coordinates. Tests: `crates/pipeline/tests/pip_03.rs`.
 - **PIP-04** `[ ]` Public coarsening (FR-OUT-03, v1).
   One function builds public geometry at the configured cell size; no other code
   constructs a public location. The public result type has no exact-coordinate

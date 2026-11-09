@@ -147,6 +147,9 @@ pub struct LocalizeOutcome {
     pub refined: Option<RefinedSolution>,
     /// SDD 6.5 verdict.
     pub decision: VerdictDecision,
+    /// Indices into the caller's track slice for the aircraft in the winning
+    /// assignment, sorted and deduplicated. Empty when nothing was refined.
+    pub matched_track_indices: Vec<usize>,
     /// Any stage reported a work-budget truncation.
     pub truncated: bool,
 }
@@ -327,8 +330,8 @@ fn localize(events: &[EventFit], spec: &AnalyzeSpec<'_>) -> Result<LocalizeOutco
     let ranked = ranked_alternatives(&clusters);
 
     // Refine the best member of the best cluster; remember how many distinct
-    // events its assignment covers for the verdict.
-    let (refined, independent_events) = refine_winner(
+    // events its assignment covers and which tracks it matched.
+    let (refined, independent_events, matched_track_indices) = refine_winner(
         &clusters,
         &scored.candidates,
         &join.candidates,
@@ -374,16 +377,18 @@ fn localize(events: &[EventFit], spec: &AnalyzeSpec<'_>) -> Result<LocalizeOutco
         ranked,
         refined,
         decision,
+        matched_track_indices,
         truncated,
     })
 }
 
 /// LM-refine the best member of the best cluster.
 ///
-/// Returns the refined solution and the number of distinct events its
-/// assignment covers; `(None, 0)` when there is nothing to refine or the
-/// assignment/refinement fails — a failed refinement is uncertainty, not an
-/// error, because the coarse answer still stands.
+/// Returns the refined solution, the number of distinct events its
+/// assignment covers and the sorted track indices it matched; empty results
+/// when there is nothing to refine or the assignment/refinement fails — a
+/// failed refinement is uncertainty, not an error, because the coarse answer
+/// still stands.
 #[allow(clippy::too_many_arguments)]
 fn refine_winner(
     clusters: &[CandidateCluster],
@@ -395,22 +400,31 @@ fn refine_winner(
     tracks: &[FlightTrack],
     l: &LocalizeSpec<'_>,
     geoid: &dyn GeoidModel,
-) -> (Option<RefinedSolution>, usize) {
+) -> (Option<RefinedSolution>, usize, Vec<usize>) {
+    let empty = || (None, 0, Vec::new());
     let Some(cluster) = clusters.first() else {
-        return (None, 0);
+        return empty();
     };
     let Some(&member) = cluster.member_indices.first() else {
-        return (None, 0);
+        return empty();
     };
     let Some(scored_candidate) = scored.get(member) else {
-        return (None, 0);
+        return empty();
     };
     let Some(candidate) = join_candidates.get(scored_candidate.candidate_index) else {
-        return (None, 0);
+        return empty();
     };
     let Ok((assignment, _)) = best_assignment(candidate, hypotheses, events, posterior_env) else {
-        return (None, 0);
+        return empty();
     };
+    let covered = assignment.len();
+    let mut matched: Vec<usize> = assignment
+        .iter()
+        .filter_map(|index| hypotheses.get(*index))
+        .map(|hypothesis| hypothesis.track_index)
+        .collect();
+    matched.sort_unstable();
+    matched.dedup();
     let refine_env = RefineEnv {
         tracks,
         terrain: l.coarse_env.terrain,
@@ -423,10 +437,10 @@ fn refine_winner(
         prior: l.prior,
         bounds: l.refine_bounds,
     };
-    let covered = assignment.len();
     (
         refine(candidate, &assignment, hypotheses, events, &refine_env).ok(),
         covered,
+        matched,
     )
 }
 
