@@ -9,6 +9,7 @@ pub mod error;
 pub mod estimate;
 pub mod likelihood;
 pub mod predict;
+pub mod silence;
 pub mod verdict;
 
 pub use clock::{
@@ -19,4 +20,8 @@ pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
 pub use likelihood::{ErrorBudget, event_log_likelihood};
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
+pub use silence::{
+    DetectionModel, PROVISIONAL_HALF_RANGE_M, PROVISIONAL_UNKNOWN_PROP_PRIOR, PROVISIONAL_WIDTH_M,
+    SilencePass, silence_log_likelihood,
+};
 pub use verdict::{Verdict, VerdictThresholds};

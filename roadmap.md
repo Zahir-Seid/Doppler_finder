@@ -566,10 +566,13 @@ terrain and time.
   with a provisional ADS-B timing sigma, and scores `log N(s; s_i, σ²)` per
   event plus an optional known-time Gaussian. Tests:
   `crates/search/tests/src_03.rs`.
-- **SRC-04** `[ ]` Silence term (FR-SL-01).
-  Build `P_detect(distance, aircraft type)` from the simulator detection ROC;
-  score unexplained audible passes with a Poisson-binomial term; exclude jets by
-  engine class and treat unknown classes probabilistically.
+- **SRC-04** `[x]` Silence term (FR-SL-01).
+  `search::silence` scores unexplained audible passes with the
+  Poisson-binomial `sum log(1 − P_detect)`. `DetectionModel` carries
+  provisional logistic parameters (`PROVISIONAL_*`, pending the FR-SIM-02
+  detection ROC); jets are excluded outright and `Unknown` classes are
+  scaled by a provisional propeller prior. Tests:
+  `crates/search/tests/src_04.rs`.
 - **SRC-05** `[ ]` Coarse hypotheses and gate (FR-SL-01).
   Grid per event and flight; keep residuals inside a 4σ gate.
 - **SRC-06** `[ ]` Pair join (FR-SL-01).
