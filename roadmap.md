@@ -638,9 +638,19 @@ terrain and time.
   `INFINITY` when uncontested). Uses unnormalized log masses, so the
   shared normalization constant cancels exactly. `CandidateCluster` gained
   `PartialEq`. Tests: `crates/search/tests/src_11.rs`.
-- **SRC-12** `[ ]` Truncation handling (FR-SL-01).
-  Every stage has a work budget; a truncated stage sets a flag and caps the
-  verdict at `Ambiguous`.
+- **SRC-12** `[x]` Truncation handling (FR-SL-01).
+  `search::WorkBudget` (`budget.rs`) carries per-stage limits
+  (`max_hypotheses`, `max_pairs`, `max_scored_candidates`,
+  `max_assignments`), validated up front — a zero limit is
+  `InvalidThresholds`, never a silent cut. All three enumeration stages
+  now return outcome structs with a `truncated` flag:
+  `coarse_hypotheses` → `CoarseOutcome`, `join_pairs` → `JoinOutcome`,
+  `score_candidates` → `ScoredOutcome`. Overflow keeps a deterministic
+  best subset: coarse keeps lowest Mahalanobis distance, join keeps most
+  clock-precise candidates, scoring keeps highest posterior and propagates
+  per-candidate assignment enumeration caps. `decide` already caps a
+  truncated stage at `Ambiguous`. Tests: `crates/search/tests/src_12.rs`
+  plus API migration in `src_05`–`src_07`.
 
 **Exit:** two simulated events with a known time gap recover the observer within
 the predicted ellipse; a single event without a known time is refused; an exact

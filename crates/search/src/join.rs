@@ -14,6 +14,7 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 
+use crate::budget::WorkBudget;
 use crate::coarse::Hypothesis;
 use crate::error::SearchError;
 
@@ -93,15 +94,29 @@ struct CellKey {
 /// the best (lowest Mahalanobis) hypothesis of each distinct event, so a
 /// duplicated event does not double-count its clock term.
 ///
+/// The join stage output: surviving candidates plus the truncation flag
+/// (SRC-12). When more than `budget.max_pairs` groups survive, the
+/// smallest-`clock_sigma_s` candidates are kept and `truncated` is set.
+#[derive(Debug, Clone)]
+pub struct JoinOutcome {
+    /// Multi-event candidates, sorted as before.
+    pub candidates: Vec<JoinCandidate>,
+    /// True when `budget.max_pairs` cut the candidate list.
+    pub truncated: bool,
+}
+
 /// # Errors
 ///
 /// Returns [`SearchError::NotFinite`] for an invalid [`JoinConfig`] or a
-/// hypothesis with non-finite `implied_start_unix_s` or `clock_sigma_s`.
+/// hypothesis with non-finite `implied_start_unix_s` or `clock_sigma_s`,
+/// and [`SearchError::InvalidThresholds`] for a zero [`WorkBudget`] limit.
 pub fn join_pairs(
     hypotheses: &[Hypothesis],
     config: &JoinConfig,
-) -> Result<Vec<JoinCandidate>, SearchError> {
+    budget: &WorkBudget,
+) -> Result<JoinOutcome, SearchError> {
     config.validate()?;
+    budget.validate()?;
     let lat_step_deg = config.cell_size_m / METRES_PER_DEG_LAT;
     let metres_per_deg_lon =
         METRES_PER_DEG_LAT * config.reference_lat_deg.to_radians().cos().abs().max(0.01);
@@ -164,5 +179,28 @@ pub fn join_pairs(
             .then(a.cell_lat_deg.total_cmp(&b.cell_lat_deg))
             .then(a.cell_lon_deg.total_cmp(&b.cell_lon_deg))
     });
-    Ok(candidates)
+
+    // Work budget: keep the most clock-precise candidates when the join
+    // overflows; ties break on the deterministic sort key.
+    let truncated = candidates.len() > budget.max_pairs;
+    if truncated {
+        candidates.sort_by(|a, b| {
+            a.clock_sigma_s
+                .total_cmp(&b.clock_sigma_s)
+                .then(a.implied_start_unix_s.total_cmp(&b.implied_start_unix_s))
+                .then(a.cell_lat_deg.total_cmp(&b.cell_lat_deg))
+                .then(a.cell_lon_deg.total_cmp(&b.cell_lon_deg))
+        });
+        candidates.truncate(budget.max_pairs);
+        candidates.sort_by(|a, b| {
+            a.implied_start_unix_s
+                .total_cmp(&b.implied_start_unix_s)
+                .then(a.cell_lat_deg.total_cmp(&b.cell_lat_deg))
+                .then(a.cell_lon_deg.total_cmp(&b.cell_lon_deg))
+        });
+    }
+    Ok(JoinOutcome {
+        candidates,
+        truncated,
+    })
 }

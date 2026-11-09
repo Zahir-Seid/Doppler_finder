@@ -15,6 +15,7 @@ use core_types::{LatLon, Metres};
 use events::EventFit;
 use geodesy::{ElevationModel, GeoidModel};
 
+use crate::budget::WorkBudget;
 use crate::clock::{implied_recording_start, recording_start_sigma};
 use crate::error::SearchError;
 use crate::likelihood::{ErrorBudget, check_fit_covariance, vd_gaussian};
@@ -104,6 +105,17 @@ pub struct CoarseEnv<'a> {
     pub adsb_timing_sigma_s: f64,
 }
 
+/// The coarse stage output: surviving hypotheses plus the truncation flag
+/// (SRC-12). When the 4σ gate emits more than `budget.max_hypotheses`, the
+/// lowest-Mahalanobis hypotheses are kept and `truncated` is set.
+#[derive(Debug, Clone)]
+pub struct CoarseOutcome {
+    /// Gate survivors, best first when truncated.
+    pub hypotheses: Vec<Hypothesis>,
+    /// True when `budget.max_hypotheses` cut the survivor list.
+    pub truncated: bool,
+}
+
 /// Generate coarse hypotheses for every `(event, track, cell)` triple and
 /// keep those inside the `gate_sigma`σ `(v, d)` gate (SDD 6.3 stage 1).
 ///
@@ -120,14 +132,16 @@ pub struct CoarseEnv<'a> {
 /// # Errors
 ///
 /// Returns [`SearchError::NotFinite`] for a bad grid, gate or sound speed,
-/// and propagates fit-level errors (bad covariance, non-finite fit fields)
+/// [`SearchError::InvalidThresholds`] for a zero [`WorkBudget`] limit, and
+/// propagates fit-level errors (bad covariance, non-finite fit fields)
 /// from the first event that triggers them.
 pub fn coarse_hypotheses(
     events: &[EventFit],
     tracks: &[FlightTrack],
     grid: &GridSpec,
     env: &CoarseEnv<'_>,
-) -> Result<Vec<Hypothesis>, SearchError> {
+    budget: &WorkBudget,
+) -> Result<CoarseOutcome, SearchError> {
     grid.validate()?;
     if !env.gate_sigma.is_finite() || env.gate_sigma <= 0.0 {
         return Err(SearchError::NotFinite);
@@ -138,6 +152,7 @@ pub fn coarse_hypotheses(
     if !env.adsb_timing_sigma_s.is_finite() || env.adsb_timing_sigma_s < 0.0 {
         return Err(SearchError::NotFinite);
     }
+    budget.validate()?;
 
     let mut hypotheses = Vec::new();
     let gate_squared = env.gate_sigma * env.gate_sigma;
@@ -186,7 +201,25 @@ pub fn coarse_hypotheses(
             }
         }
     }
-    Ok(hypotheses)
+
+    // Work budget: keep the best (lowest Mahalanobis) hypotheses when the
+    // gate overflows; ties break on identity fields for determinism.
+    let truncated = hypotheses.len() > budget.max_hypotheses;
+    if truncated {
+        hypotheses.sort_by(|a, b| {
+            a.maha_distance
+                .total_cmp(&b.maha_distance)
+                .then(a.event_index.cmp(&b.event_index))
+                .then(a.track_index.cmp(&b.track_index))
+                .then(a.observer.lat_deg.0.total_cmp(&b.observer.lat_deg.0))
+                .then(a.observer.lon_deg.0.total_cmp(&b.observer.lon_deg.0))
+        });
+        hypotheses.truncate(budget.max_hypotheses);
+    }
+    Ok(CoarseOutcome {
+        hypotheses,
+        truncated,
+    })
 }
 
 /// Cell-centre observer positions covering `grid`, row by row.

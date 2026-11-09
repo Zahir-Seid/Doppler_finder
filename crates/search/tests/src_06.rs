@@ -5,7 +5,8 @@
 
 use core_types::{LatLon, UtcMillis};
 use search::{
-    Hypothesis, JoinConfig, PROVISIONAL_CLOCK_BIN_S, Prediction, SearchError, join_pairs,
+    Hypothesis, JoinConfig, PROVISIONAL_CLOCK_BIN_S, Prediction, SearchError, WorkBudget,
+    join_pairs,
 };
 
 fn prediction(heard_ms: i64) -> Prediction {
@@ -53,7 +54,9 @@ fn two_events_sharing_cell_and_bin_survive() {
         hypothesis(0, 0, 52.001, 13.001, 100.0, 1.0),
         hypothesis(1, 1, 52.001, 13.001, 101.0, 2.0),
     ];
-    let candidates = join_pairs(&hyps, &config()).expect("join succeeds");
+    let candidates = join_pairs(&hyps, &config(), &WorkBudget::default())
+        .expect("join succeeds")
+        .candidates;
     assert_eq!(candidates.len(), 1);
     let candidate = &candidates[0];
     assert_eq!(candidate.event_indices.len(), 2);
@@ -71,7 +74,12 @@ fn different_clock_bins_do_not_join() {
         hypothesis(0, 0, 52.001, 13.001, 100.0, 1.0),
         hypothesis(1, 1, 52.001, 13.001, 110.0, 1.0),
     ];
-    assert!(join_pairs(&hyps, &config()).expect("ok").is_empty());
+    assert!(
+        join_pairs(&hyps, &config(), &WorkBudget::default())
+            .expect("ok")
+            .candidates
+            .is_empty()
+    );
 }
 
 #[test]
@@ -81,7 +89,12 @@ fn different_cells_do_not_join() {
         hypothesis(0, 0, 52.001, 13.001, 100.0, 1.0),
         hypothesis(1, 1, 52.05, 13.001, 100.0, 1.0),
     ];
-    assert!(join_pairs(&hyps, &config()).expect("ok").is_empty());
+    assert!(
+        join_pairs(&hyps, &config(), &WorkBudget::default())
+            .expect("ok")
+            .candidates
+            .is_empty()
+    );
 }
 
 #[test]
@@ -91,7 +104,12 @@ fn single_event_cannot_form_a_candidate() {
         hypothesis(0, 0, 52.001, 13.001, 100.0, 1.0),
         hypothesis(0, 1, 52.001, 13.001, 101.0, 1.0),
     ];
-    assert!(join_pairs(&hyps, &config()).expect("ok").is_empty());
+    assert!(
+        join_pairs(&hyps, &config(), &WorkBudget::default())
+            .expect("ok")
+            .candidates
+            .is_empty()
+    );
 }
 
 #[test]
@@ -104,7 +122,9 @@ fn same_event_does_not_double_count_in_clock_mean() {
     strong.maha_distance = 0.5;
     let other = hypothesis(1, 2, 52.001, 13.001, 103.0, 1.0);
     let hyps = vec![weak, strong, other];
-    let candidates = join_pairs(&hyps, &config()).expect("ok");
+    let candidates = join_pairs(&hyps, &config(), &WorkBudget::default())
+        .expect("ok")
+        .candidates;
     assert_eq!(candidates.len(), 1);
     // Equal sigmas: mean of 100 and 103 = 101.5.
     assert!((candidates[0].implied_start_unix_s - 101.5).abs() < 1e-9);
@@ -118,13 +138,13 @@ fn invalid_config_and_hypotheses_are_rejected() {
         ..config()
     };
     assert!(matches!(
-        join_pairs(&hyps, &bad),
+        join_pairs(&hyps, &bad, &WorkBudget::default()),
         Err(SearchError::NotFinite)
     ));
     let mut bad_hyp = hypothesis(0, 0, 52.0, 13.0, f64::NAN, 1.0);
     bad_hyp.prediction.heard_utc = UtcMillis(0);
     assert!(matches!(
-        join_pairs(&[bad_hyp], &config()),
+        join_pairs(&[bad_hyp], &config(), &WorkBudget::default()),
         Err(SearchError::NotFinite)
     ));
 }

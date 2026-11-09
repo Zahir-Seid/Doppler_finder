@@ -28,6 +28,7 @@ use std::collections::BTreeMap;
 use core_types::LatLon;
 use events::EventFit;
 
+use crate::budget::WorkBudget;
 use crate::clock::clock_log_likelihood;
 use crate::coarse::Hypothesis;
 use crate::error::SearchError;
@@ -112,24 +113,39 @@ pub struct PosteriorEnv<'a> {
     pub prior: &'a dyn LandPrior,
 }
 
+/// The scoring stage output: candidates sorted by descending log-posterior
+/// plus the stage truncation flag (SRC-12).
+#[derive(Debug, Clone)]
+pub struct ScoredOutcome {
+    /// Scored candidates, best first.
+    pub candidates: Vec<ScoredCandidate>,
+    /// True when `budget.max_scored_candidates` cut the list or any
+    /// candidate's assignment enumeration hit `budget.max_assignments`.
+    pub truncated: bool,
+}
+
 /// Score every join candidate with the full log-posterior and return the
 /// candidates sorted by descending score.
 ///
 /// `hypotheses` and `events` are the slices the join ran over;
 /// `candidate.hypothesis_indices` index into `hypotheses`, and each
 /// hypothesis's `event_index`/`track_index` select the `EventFit` and the
-/// prediction used in the likelihoods.
+/// prediction used in the likelihoods. `budget.max_assignments` caps the
+/// per-candidate assignment enumeration and `budget.max_scored_candidates`
+/// caps the returned list at the highest scores.
 ///
 /// # Errors
 ///
-/// Returns [`SearchError::NotFinite`] for invalid env values, and
+/// Returns [`SearchError::NotFinite`] for invalid env values,
+/// [`SearchError::InvalidThresholds`] for a zero [`WorkBudget`] limit, and
 /// propagates likelihood errors from malformed fits or predictions.
 pub fn score_candidates(
     candidates: &[JoinCandidate],
     hypotheses: &[Hypothesis],
     events: &[EventFit],
     env: &PosteriorEnv<'_>,
-) -> Result<Vec<ScoredCandidate>, SearchError> {
+    budget: &WorkBudget,
+) -> Result<ScoredOutcome, SearchError> {
     if !env.adsb_timing_sigma_s.is_finite() || env.adsb_timing_sigma_s < 0.0 {
         return Err(SearchError::NotFinite);
     }
@@ -141,6 +157,7 @@ pub fn score_candidates(
     if env.silence.len() != candidates.len() {
         return Err(SearchError::NotFinite);
     }
+    budget.validate()?;
 
     let mut scored = Vec::with_capacity(candidates.len());
     for (candidate_index, candidate) in candidates.iter().enumerate() {
@@ -182,6 +199,7 @@ pub fn score_candidates(
             s,
             env,
             silence_term + known_term + log_prior,
+            budget.max_assignments,
         )?;
         scored.push(ScoredCandidate {
             candidate_index,
@@ -192,7 +210,19 @@ pub fn score_candidates(
     }
 
     scored.sort_by(|a, b| b.log_posterior.total_cmp(&a.log_posterior));
-    Ok(scored)
+
+    // Work budget: the stage is truncated when any candidate's assignment
+    // enumeration hit its cap or the candidate list itself is cut at the
+    // highest scores (`-inf` scores sort last and drop first).
+    let any_assignment_truncated = scored.iter().any(|s| s.truncated);
+    let list_truncated = scored.len() > budget.max_scored_candidates;
+    if list_truncated {
+        scored.truncate(budget.max_scored_candidates);
+    }
+    Ok(ScoredOutcome {
+        candidates: scored,
+        truncated: any_assignment_truncated || list_truncated,
+    })
 }
 
 /// Cartesian product over per-event options, log-sum-exp of the joint
@@ -204,10 +234,11 @@ fn enumerate_assignments(
     s_unix_s: f64,
     env: &PosteriorEnv<'_>,
     constant_terms: f64,
+    max_assignments: usize,
 ) -> Result<(f64, usize, bool), SearchError> {
     let total: usize = option_lists.iter().map(Vec::len).product();
-    let truncated = total > MAX_ASSIGNMENTS;
-    let limit = if truncated { MAX_ASSIGNMENTS } else { total };
+    let truncated = total > max_assignments;
+    let limit = if truncated { max_assignments } else { total };
 
     // Depth-first enumeration with early cap; the per-event option lists are
     // already sorted best-first, so the prefix is the best assignments.

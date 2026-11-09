@@ -10,7 +10,7 @@ use events::EventFit;
 use geodesy::{ElevationModel, GeodesyError, GeoidModel};
 use search::{
     CoarseEnv, DEFAULT_GATE_SIGMA, ErrorBudget, GridSpec, NOMINAL_EAR_HEIGHT_M, SearchError,
-    coarse_hypotheses,
+    WorkBudget, coarse_hypotheses,
 };
 
 const BASE_MS: i64 = 1_762_473_600_000;
@@ -109,8 +109,15 @@ fn hypotheses_survive_near_true_observer_only() {
     let events = [fit(34.0, 2_898.0)];
     let tracks = [overflight_track()];
     let budget = ErrorBudget::default();
-    let hyps =
-        coarse_hypotheses(&events, &tracks, &grid(), &env(&budget)).expect("coarse stage succeeds");
+    let hyps = coarse_hypotheses(
+        &events,
+        &tracks,
+        &grid(),
+        &env(&budget),
+        &WorkBudget::default(),
+    )
+    .expect("coarse stage succeeds")
+    .hypotheses;
     assert!(!hyps.is_empty(), "expected surviving hypotheses");
     // The (v, d) gate admits a band around the equal-slant-range curve, so
     // individual hypotheses may sit hundreds of metres off; what matters is
@@ -142,7 +149,15 @@ fn mismatched_event_speed_yields_no_hypotheses() {
     let events = [fit(200.0, 2_898.0)];
     let tracks = [overflight_track()];
     let budget = ErrorBudget::default();
-    let hyps = coarse_hypotheses(&events, &tracks, &grid(), &env(&budget)).expect("ok");
+    let hyps = coarse_hypotheses(
+        &events,
+        &tracks,
+        &grid(),
+        &env(&budget),
+        &WorkBudget::default(),
+    )
+    .expect("ok")
+    .hypotheses;
     assert!(hyps.is_empty());
 }
 
@@ -156,13 +171,19 @@ fn invalid_grid_and_gate_are_rejected() {
     };
     let budget = ErrorBudget::default();
     assert!(matches!(
-        coarse_hypotheses(&events, &tracks, &bad_grid, &env(&budget)),
+        coarse_hypotheses(
+            &events,
+            &tracks,
+            &bad_grid,
+            &env(&budget),
+            &WorkBudget::default()
+        ),
         Err(SearchError::NotFinite)
     ));
     let mut bad_env = env(&budget);
     bad_env.gate_sigma = 0.0;
     assert!(matches!(
-        coarse_hypotheses(&events, &tracks, &grid(), &bad_env),
+        coarse_hypotheses(&events, &tracks, &grid(), &bad_env, &WorkBudget::default()),
         Err(SearchError::NotFinite)
     ));
 }

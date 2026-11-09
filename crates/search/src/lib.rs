@@ -4,6 +4,7 @@
 //! fusion and refinement stages are added with their simulator tests; this
 //! crate fixes the result types and the refusal rule.
 
+pub mod budget;
 pub mod calibration;
 pub mod clock;
 pub mod coarse;
@@ -17,20 +18,23 @@ pub mod refine;
 pub mod silence;
 pub mod verdict;
 
+pub use budget::WorkBudget;
 pub use calibration::{Calibration, PROVISIONAL_CALIBRATION_VERSION, PROVISIONAL_KAPPA, fit_kappa};
 pub use clock::{
     PROVISIONAL_ADSB_TIMING_SIGMA_S, clock_log_likelihood, clock_terms_log_likelihood,
     implied_recording_start, known_time_log_likelihood, recording_start_sigma,
 };
-pub use coarse::{CoarseEnv, DEFAULT_GATE_SIGMA, GridSpec, Hypothesis, coarse_hypotheses};
+pub use coarse::{
+    CoarseEnv, CoarseOutcome, DEFAULT_GATE_SIGMA, GridSpec, Hypothesis, coarse_hypotheses,
+};
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
-pub use join::{JoinCandidate, JoinConfig, PROVISIONAL_CLOCK_BIN_S, join_pairs};
+pub use join::{JoinCandidate, JoinConfig, JoinOutcome, PROVISIONAL_CLOCK_BIN_S, join_pairs};
 pub use likelihood::{ErrorBudget, event_log_likelihood};
 pub use posterior::{
     CandidateCluster, DEFAULT_TOP_K, LandPrior, MAX_ASSIGNMENTS, PROVISIONAL_CLUSTER_RADIUS_M,
-    PosteriorEnv, RankedAlternative, ScoredCandidate, UniformPrior, ranked_alternatives,
-    score_candidates, top_clusters,
+    PosteriorEnv, RankedAlternative, ScoredCandidate, ScoredOutcome, UniformPrior,
+    ranked_alternatives, score_candidates, top_clusters,
 };
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use refine::{RefineBounds, RefineEnv, RefinedSolution, best_assignment, refine};

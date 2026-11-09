@@ -10,7 +10,7 @@ use core_types::{AudioSeconds, EventId, Hertz, LatLon, Metres, UtcMillis};
 use events::EventFit;
 use search::{
     ErrorBudget, Hypothesis, JoinCandidate, LandPrior, PosteriorEnv, Prediction, SearchError,
-    UniformPrior, score_candidates, top_clusters,
+    UniformPrior, WorkBudget, score_candidates, top_clusters,
 };
 
 fn prediction(speed: f64, closest: f64, heard_ms: i64) -> Prediction {
@@ -102,8 +102,15 @@ fn consistent_candidate_outranks_mismatched_one() {
     ];
     let budget = ErrorBudget::default();
     let silence = [None, None];
-    let scored = score_candidates(&candidates, &hyps, &events, &env(&budget, &silence))
-        .expect("scoring succeeds");
+    let scored = score_candidates(
+        &candidates,
+        &hyps,
+        &events,
+        &env(&budget, &silence),
+        &WorkBudget::default(),
+    )
+    .expect("scoring succeeds")
+    .candidates;
     assert_eq!(scored.len(), 2);
     assert_eq!(
         scored[0].candidate_index, 0,
@@ -130,8 +137,13 @@ fn two_assignments_double_the_mass() {
     let budget = ErrorBudget::default();
     let silence = [None];
     let env = env(&budget, &silence);
-    let scored_two = score_candidates(&candidates, &hyps, &events, &env).expect("ok");
-    let scored_one = score_candidates(&single, &hyps, &events, &env).expect("ok");
+    let work = WorkBudget::default();
+    let scored_two = score_candidates(&candidates, &hyps, &events, &env, &work)
+        .expect("ok")
+        .candidates;
+    let scored_one = score_candidates(&single, &hyps, &events, &env, &work)
+        .expect("ok")
+        .candidates;
     let diff = scored_two[0].log_posterior - scored_one[0].log_posterior;
     assert!((diff - std::f64::consts::LN_2).abs() < 1e-9, "diff {diff}");
     assert_eq!(scored_two[0].assignments_evaluated, 2);
@@ -156,7 +168,9 @@ fn land_prior_can_exclude_a_candidate() {
     let silence = [None];
     let mut e = env(&budget, &silence);
     e.prior = &OceanPrior;
-    let scored = score_candidates(&candidates, &hyps, &events, &e).expect("ok");
+    let scored = score_candidates(&candidates, &hyps, &events, &e, &WorkBudget::default())
+        .expect("ok")
+        .candidates;
     assert_eq!(scored[0].log_posterior, f64::NEG_INFINITY);
 }
 
@@ -174,8 +188,15 @@ fn top_clusters_merges_nearby_and_normalizes() {
     ];
     let budget = ErrorBudget::default();
     let silence = [None, None, None];
-    let scored =
-        score_candidates(&candidates, &hyps, &events, &env(&budget, &silence)).expect("ok");
+    let scored = score_candidates(
+        &candidates,
+        &hyps,
+        &events,
+        &env(&budget, &silence),
+        &WorkBudget::default(),
+    )
+    .expect("ok")
+    .candidates;
     let clusters = top_clusters(&scored, &candidates, 8, 1_000.0).expect("ok");
     assert_eq!(clusters.len(), 2, "near pair merges, far one separate");
     let mass_sum: f64 = clusters.iter().map(|c| c.posterior_mass).sum();
@@ -197,7 +218,13 @@ fn invalid_inputs_are_rejected() {
     // silence slice length mismatch
     let bad_silence: [Option<f64>; 0] = [];
     assert!(matches!(
-        score_candidates(&candidates, &hyps, &events, &env(&budget, &bad_silence)),
+        score_candidates(
+            &candidates,
+            &hyps,
+            &events,
+            &env(&budget, &bad_silence),
+            &WorkBudget::default(),
+        ),
         Err(SearchError::NotFinite)
     ));
     assert!(matches!(
