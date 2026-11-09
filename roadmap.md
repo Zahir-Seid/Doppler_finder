@@ -611,9 +611,15 @@ terrain and time.
   recovers the true observer and recording start; the test also documents
   that two `(v, d)` curves alone admit a second legitimate intersection,
   which is why real candidates carry several events.
-- **SRC-09** `[ ]` Calibration factor (FR-SL-04, NFR-01).
-  Fit `κ` on simulation and keep validation clips held out; store `κ` and model
-  version with every result.
+- **SRC-09** `[x]` Calibration factor (FR-SL-04, NFR-01).
+  `search::calibration::Calibration` carries `κ` plus a version string and
+  produces the manifest `ModelVersions` record; `ellipse_covariance` scales
+  only the `(east, north)` block of the refined 3×3 covariance by `κ²`.
+  `fit_kappa` fits `κ` from simulator squared-Mahalanobis samples via
+  `κ² = Q_p(d²) / χ²₂(p)` (exact `χ²₂` quantile for the 2-D ellipse).
+  `PROVISIONAL_KAPPA = 1.0` until FR-SIM-02/04 produce real `d²` samples;
+  real-clip validation stays held out per T-6. Tests:
+  `crates/search/tests/src_09.rs`.
 - **SRC-10** `[ ]` Verdicts and refusal (FR-SL-02, FR-OUT-01).
   Implement the SDD 6.5 table: mass thresholds, at least two independent events
   or one event plus known time/silence, 95% semi-major axis ≤ 1 km, no truncation,

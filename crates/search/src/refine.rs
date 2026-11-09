@@ -346,25 +346,73 @@ pub fn refine(
         prior: env.prior,
     };
 
-    let mut theta = [0.0, 0.0, candidate.implied_start_unix_s];
+    let theta = [0.0, 0.0, candidate.implied_start_unix_s];
     if !env.bounds.contains(theta) {
         return Err(SearchError::NotFinite);
     }
-    let (mut residuals, _constants0) = eval_theta(&ctx, theta)?;
+    let (residuals, _constants0) = eval_theta(&ctx, theta)?;
+    let outcome = lm_loop(&ctx, theta, residuals, &env.bounds)?;
+    let theta = outcome.theta;
+
+    // Final residual/Jacobian for covariance and log-posterior.
+    let (final_residuals, final_constants) = eval_theta(&ctx, theta)?;
+    let jacobian = match outcome.last_jacobian {
+        Some(j) => j,
+        None => numeric_jacobian(&ctx, theta, [25.0, 25.0, 0.25], &final_residuals)?,
+    };
+    let (j_t_j, _) = normal_equations(&jacobian, &final_residuals);
+    let covariance = invert3(j_t_j).ok_or(SearchError::InvalidCovariance)?;
+
+    let (observer, _) = frame
+        .enu_to_geodetic(geodesy::Enu {
+            east_m: theta[0],
+            north_m: theta[1],
+            up_m: 0.0,
+        })
+        .map_err(|e| SearchError::Geodesy(e.to_string()))?;
+    let sse: f64 = final_residuals.iter().map(|r| r * r).sum();
+    Ok(RefinedSolution {
+        observer,
+        s_unix_s: theta[2],
+        covariance,
+        log_posterior: final_constants - 0.5 * sse,
+        iterations: outcome.iterations,
+        converged: outcome.converged,
+    })
+}
+
+/// Outcome of the LM loop: final `theta`, convergence flag, iteration
+/// count and the last Jacobian (reused for the covariance Hessian).
+struct LmOutcome {
+    theta: [f64; 3],
+    converged: bool,
+    iterations: usize,
+    last_jacobian: Option<Vec<[f64; 3]>>,
+}
+
+/// Levenberg–Marquardt on `0.5·‖residuals‖²` starting at `theta`, with
+/// steps rejected outside `bounds` or when [`eval_theta`] fails (e.g. a
+/// `-inf` prior). Converged means a vanishing gradient or a relative cost
+/// improvement below `1e-9`; exhausting the damping ladder also stops the
+/// loop but leaves `converged` false.
+fn lm_loop(
+    ctx: &ResidualCtx<'_>,
+    mut theta: [f64; 3],
+    mut residuals: Vec<f64>,
+    bounds: &RefineBounds,
+) -> Result<LmOutcome, SearchError> {
     let sumsq = |r: &[f64]| r.iter().map(|v| v * v).sum::<f64>();
     let mut cost = 0.5 * sumsq(&residuals);
-
-    // LM state.
     let mut lambda = 1e-3;
     let steps = [25.0, 25.0, 0.25]; // numeric Jacobian steps (m, m, s)
     let mut converged = false;
     let mut iterations = 0;
-    let mut last_jacobian: Option<Vec<[f64; 3]>> = None;
+    let mut last_jacobian = None;
     let mut previous_cost = cost;
 
     for iteration in 0..60 {
         iterations = iteration + 1;
-        let jacobian = numeric_jacobian(&ctx, theta, steps, &residuals)?;
+        let jacobian = numeric_jacobian(ctx, theta, steps, &residuals)?;
         last_jacobian = Some(jacobian.clone());
         let (j_t_j, j_t_r) = normal_equations(&jacobian, &residuals);
         // At the floating-point noise floor no trial can improve the cost;
@@ -387,11 +435,11 @@ pub fn refine(
                 theta[1] + delta[1],
                 theta[2] + delta[2],
             ];
-            if !env.bounds.contains(trial) {
+            if !bounds.contains(trial) {
                 lambda *= 10.0;
                 continue;
             }
-            let Ok((trial_residuals, _)) = eval_theta(&ctx, trial) else {
+            let Ok((trial_residuals, _)) = eval_theta(ctx, trial) else {
                 lambda *= 10.0;
                 continue;
             };
@@ -416,30 +464,11 @@ pub fn refine(
         previous_cost = cost;
     }
 
-    // Final residual/Jacobian for covariance and log-posterior.
-    let (final_residuals, final_constants) = eval_theta(&ctx, theta)?;
-    let jacobian = match last_jacobian {
-        Some(j) => j,
-        None => numeric_jacobian(&ctx, theta, steps, &final_residuals)?,
-    };
-    let (j_t_j, _) = normal_equations(&jacobian, &final_residuals);
-    let covariance = invert3(j_t_j).ok_or(SearchError::InvalidCovariance)?;
-
-    let (observer, _) = frame
-        .enu_to_geodetic(geodesy::Enu {
-            east_m: theta[0],
-            north_m: theta[1],
-            up_m: 0.0,
-        })
-        .map_err(|e| SearchError::Geodesy(e.to_string()))?;
-    let sse: f64 = final_residuals.iter().map(|r| r * r).sum();
-    Ok(RefinedSolution {
-        observer,
-        s_unix_s: theta[2],
-        covariance,
-        log_posterior: final_constants - 0.5 * sse,
-        iterations,
+    Ok(LmOutcome {
+        theta,
         converged,
+        iterations,
+        last_jacobian,
     })
 }
 

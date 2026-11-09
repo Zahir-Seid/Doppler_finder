@@ -4,6 +4,7 @@
 //! fusion and refinement stages are added with their simulator tests; this
 //! crate fixes the result types and the refusal rule.
 
+pub mod calibration;
 pub mod clock;
 pub mod coarse;
 pub mod error;
@@ -16,6 +17,7 @@ pub mod refine;
 pub mod silence;
 pub mod verdict;
 
+pub use calibration::{Calibration, PROVISIONAL_CALIBRATION_VERSION, PROVISIONAL_KAPPA, fit_kappa};
 pub use clock::{
     PROVISIONAL_ADSB_TIMING_SIGMA_S, clock_log_likelihood, clock_terms_log_likelihood,
     implied_recording_start, known_time_log_likelihood, recording_start_sigma,
