@@ -17,6 +17,7 @@ pub mod source;
 pub mod stats;
 pub mod track_store;
 pub mod tracks;
+pub mod weather;
 
 pub use closest::{ClosestApproach, closest_approach};
 pub use coverage::{CoverageReport, MAX_SUPPORTED_MEDIAN_GAP_S, RegionSupport, assess_coverage};
@@ -32,4 +33,8 @@ pub use track_store::{FileDigest, IngestRun, TRACK_STORE_SCHEMA_VERSION, TrackSt
 pub use tracks::{
     FLAG_GEOM_FROM_BARO, FLAG_INTERPOLATED, FLAG_MLAT, FLAG_NEW_LEG, FLAG_NEW_LEG_AFTER,
     FLAG_STALE, FLAG_TISB, FlightTrack, TrackSample, TrackSourceKind,
+};
+pub use weather::{
+    ARCHIVE_API_URL, FORECAST_API_URL, HIST_FORECAST_API_URL, OPEN_METEO_HOSTS, WeatherArchive,
+    fetch_weather_payload, open_meteo_url, parse_open_meteo_response,
 };

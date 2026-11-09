@@ -754,7 +754,7 @@ fn date_from_ms(ts_ms: i64) -> String {
 ///
 /// This is Howard Hinnant's `civil_from_days` algorithm. It avoids a calendar
 /// dependency and works for dates before the Unix epoch as well.
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
+pub(crate) fn civil_from_days(days: i64) -> (i64, i64, i64) {
     let shifted = days + 719_468;
     let era = if shifted >= 0 {
         shifted
