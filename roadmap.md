@@ -770,12 +770,10 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 ## 6. Current next tasks
 
-The immediate unblocked queue, in order:
-
-1. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
-   the tools are not installed on every machine (`cargo audit` is missing
-   locally; `cargo deny` runs but flags a pre-existing `tiny-keccak` CC0-1.0
-   licence rejection unrelated to recent work).
+The immediate unblocked queue is empty: X-02 is done (`cargo audit` installed,
+`quinn-proto`/`chacha20` advisories cleared, `CC0-1.0` allowed). Next is M5
+search/localization — SRC-01 — subject to the EventFit/detector stability
+gate below.
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.
@@ -818,11 +816,16 @@ These can land with any milestone, but must not distract from the critical path:
   --locked`, state that both tools read the repository's `deny.toml` (the same
   file `cargo-deny-action` and `rustsec/audit-check` use in CI), and require a
   missing gate to be reported rather than skipped silently. `cargo deny check`
-  was run on this tree: advisories, bans, licences and sources all pass, with
+  passes on this tree: advisories, bans, licences and sources all ok, with
   warnings only for internal workspace path dependencies counted as wildcards
-  and for the `ISC` and `Unicode-DFS-2016` allowances no crate currently uses.
-  `cargo audit` could not be installed here; `cargo deny`'s advisory check reads
-  the same RustSec database, so the vulnerability gate did run.
+  and for the `Unicode-DFS-2016` allowance no crate currently uses.
+  `cargo audit` 0.22.2 is installed locally and initially flagged three
+  `quinn-proto` 0.11.17 advisories (via `reqwest`'s HTTP/3 stack) plus a yanked
+  `chacha20` 0.10.1; `cargo update -p quinn-proto -p chacha20` moved the
+  lockfile to quinn-proto 0.11.19 and chacha20 0.10.2 and the audit is clean.
+  `CC0-1.0` was added to the `deny.toml` licence allow-list for `tiny-keccak`
+  (transitive via `ahash` → `arrow`/`parquet`); it is a public-domain
+  dedication, strictly more permissive than MIT.
 - **X-03** `[ ]` Criterion benchmarks for `dsp` and `search` before optimization.
 - **X-04** `[ ]` Property tests for transform round trips, whitening and
   likelihood maximality.
