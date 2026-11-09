@@ -674,11 +674,15 @@ needed by G1/G2.
   cap. The silence term is honestly absent (`None` per candidate) until a
   per-candidate silence pass is wired. Render is PIP-05. Tests:
   `crates/pipeline/tests/pip_01.rs`.
-- **PIP-02** `[ ]` Run manifest (NFR-04).
-  Build and write the JSON from SDD 9.4: manifest version, git commit, crate
-  versions, parameter hash, seed, data sources with version/hash/sampling,
-  atmosphere source or fallback flag, model/`κ` versions, thread count, stage
-  timings, truncation flags. Hash it with SHA-256.
+- **PIP-02** `[x]` Run manifest (NFR-04).
+  `pipeline::manifest::build_manifest` fills `RunManifest` from
+  `ManifestInputs` (job id, git commit, crate version, parameter hash, seed,
+  data sources, atmosphere provenance, model/`κ` versions, thread count)
+  plus the finished `AnalyzeOutcome` — stage timings and the truncation flag
+  come from the outcome so they cannot disagree with the run.
+  `parameter_hash` SHA-256s the canonical JSON of any serializable parameter
+  set; `RunManifest::to_json_and_hash` produces the stored JSON + digest.
+  Tests: `crates/pipeline/tests/pip_02.rs`.
 - **PIP-03** `[ ]` Result payload and manifest export (FR-OUT-04).
   Export verdict, ranking, evidence and manifest JSON. Research mode may carry
   full geometry; the serialized shape is fixed here so the public type cannot

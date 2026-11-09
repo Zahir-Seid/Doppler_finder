@@ -13,7 +13,10 @@ pub mod stages;
 
 pub use budget::{PipelineConfig, RunMode};
 pub use error::PipelineError;
-pub use manifest::RunManifest;
+pub use manifest::{
+    AtmosphereSource, DataSource, MANIFEST_VERSION, ManifestInputs, ManifestJson, ModelVersions,
+    RunManifest, StageTiming, build_manifest, parameter_hash, sha256_hex,
+};
 pub use progress::ProgressSink;
 pub use run::{
     AnalyzeOutcome, AnalyzeSpec, FittedEvent, FrontEndSpec, LocalizeOutcome, LocalizeSpec, analyze,
