@@ -560,10 +560,12 @@ terrain and time.
   `f0` is marginalized through the fit covariance's `(v, d)` sub-block.
   `ErrorBudget` carries `PROVISIONAL` diagonal `Σ_adsb`/`Σ_model` pending
   the FR-SIM-02 measurements. Tests: `crates/search/tests/src_02.rs`.
-- **SRC-03** `[ ]` Clock term (FR-SL-01).
-  Each event implies a recording start `s_i`; events must agree within
-  `σ_s,i`; a known time adds one Gaussian term. This replaces hard offset
-  filtering.
+- **SRC-03** `[x]` Clock term (FR-SL-01).
+  `search::clock` computes each event's implied recording start
+  `s_i = heard_utc − heard_at`, combines the fit's `heard_time_s` variance
+  with a provisional ADS-B timing sigma, and scores `log N(s; s_i, σ²)` per
+  event plus an optional known-time Gaussian. Tests:
+  `crates/search/tests/src_03.rs`.
 - **SRC-04** `[ ]` Silence term (FR-SL-01).
   Build `P_detect(distance, aircraft type)` from the simulator detection ROC;
   score unexplained audible passes with a Poisson-binomial term; exclude jets by

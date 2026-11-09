@@ -4,12 +4,17 @@
 //! fusion and refinement stages are added with their simulator tests; this
 //! crate fixes the result types and the refusal rule.
 
+pub mod clock;
 pub mod error;
 pub mod estimate;
 pub mod likelihood;
 pub mod predict;
 pub mod verdict;
 
+pub use clock::{
+    PROVISIONAL_ADSB_TIMING_SIGMA_S, clock_log_likelihood, clock_terms_log_likelihood,
+    implied_recording_start, known_time_log_likelihood, recording_start_sigma,
+};
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
 pub use likelihood::{ErrorBudget, event_log_likelihood};
