@@ -49,7 +49,8 @@ locked version before release.
 | `sha2` | MIT OR Apache-2.0 | Manifest SHA-256 | Workspace |
 | `hmac` | MIT OR Apache-2.0 | Keyed IP hashing | Needed, not added |
 | `subtle` | BSD-3-Clause | Constant-time token comparison | Needed, not added |
-| `flate2` | MIT OR Apache-2.0 | Compressed ADS-B dumps, if needed | Conditional |
+| `flate2` | MIT OR Apache-2.0 | Gzip members inside adsb.lol dump tars | In `adsb` (1.x) |
+| `tar` | MIT OR Apache-2.0 | Walk adsb.lol `globe_history` tar archives | In `adsb` (0.4) |
 | `image` | MIT OR Apache-2.0 | Spectrogram and map figures | Candidate, verify at lock |
 | `plotters` | MIT | Figures, if `image` is not enough | Candidate, verify at lock |
 | `metrics` | MIT | Prometheus counters for FR-OP-03 | Candidate, verify at lock |
@@ -86,7 +87,7 @@ and redistribution policy in the run manifest (NFR-04, NFR-06).
 | Source | Expected licence or terms | Use | Status |
 | --- | --- | --- | --- |
 | OpenSky Network | Open academic use, attribution; verify current terms for redistribution | ADS-B tracks | OpenSky states client in `adsb`; fixture `crates/adsb/tests/fixtures/opensky_states.json`; terms still to confirm for redistribution |
-| adsb.lol | Open data; verify the current ODbL or equivalent terms | ADS-B tracks | Planned, terms must be confirmed |
+| adsb.lol | Open data (ODbL); verify the current terms for redistribution | ADS-B tracks | `adsb::dump` ingests `globe_history` releases; tests build tars in-memory, no real dump committed; terms still to confirm for redistribution |
 | SRTM or Copernicus DEM | Public domain or open with attribution; verify the chosen product | Terrain | SRTMGL1 crop in `crates/geodesy/tests/fixtures/srtm_everest_33x33.txt`, extracted 2026-11-07 from AWS Open Data `N27E086.hgt.gz` (SHA-256 `0e95b43508321ee2b3d9454797130bf1c972737377eff4cb07b4cf912138aad1`); SRTM is a public-domain NASA/USGS product; format in `docs/dem-grid-format.md` |
 | EGM96 / EGM2008 | Public domain geoid grid (NGA) | Geoid correction | EGM96 15-minute subset in `crates/geodesy/tests/fixtures/egm96_uk_3deg.txt`, extracted 2026-11-07 from PROJ `egm96_15.gtx` (SHA-256 `c02a6eb70a7a78efebe5adf3ade626eb75390e170bb8b3f36136a2c28f5326a0`); format in `docs/geoid-grid-format.md` |
 | Natural Earth | Public domain | Land mask and map background | Planned |
@@ -102,11 +103,25 @@ licences.
 
 ## Copied code and reference repositories
 
-- **None.** No code has been copied into this repository.
-- `Local/franken_doppler_finder` is a functional reference only. It is
-  git-ignored, its licence is not inherited, and no source from it may be
-  pasted here. Any future reuse requires a proposal, a licence check and an
-  entry in this file before the code lands (PRD D-2, Norms section 1).
+- **`crates/adsb/src/dump.rs`** is ported from `franken_doppler_finder`
+  `crates/fdop-data/src/ingest.rs` (and the `BBox` helpers in
+  `crates/fdop-types/src/lib.rs`), © 2026 Jeffrey Emanuel, under the **MIT
+  License with OpenAI/Anthropic Rider** (the full text ships in
+  `Local/franken_doppler_finder/LICENSE`). The port keeps the readsb row
+  visitors, tar walking and window/anchor filtering; it drops the rayon
+  pipeline, geoid conversion, engine filtering and leg-boundary events.
+  Changes: single-threaded, `FlightTrack`/`TrackSample` output, our flag
+  bits, ellipsoidal altitude kept as reported.
+- The rider is part of the licence conditions: distributions of derivative
+  works must carry it unmodified, and it denies rights to OpenAI, Anthropic
+  and their affiliates. Cognition is not a Restricted Party. Because the
+  rider adds restrictions beyond plain MIT, the ported file stays under its
+  own licence terms inside this AGPL project; the rest of the crate is
+  unaffected.
+- `Local/franken_doppler_finder` otherwise remains a functional reference
+  only: git-ignored, no other source pasted. Any further reuse requires a
+  proposal, a licence check and an entry in this file before the code lands
+  (PRD D-2, Norms section 1).
 - The architecture diagram in `docs/assets/architecture.png` is part of this
   project's documentation. Record its source if it was generated elsewhere.
 

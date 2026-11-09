@@ -25,8 +25,45 @@ present.
 
 OpenSky's REST states endpoint serves only recent state vectors (anonymous
 access is limited to the latest snapshot; authenticated access reaches about
-one hour back). Full-day history uses OpenSky's Trino interface or the adsb.lol
-daily dumps, which remain separate ingest work.
+one hour back). Full-day history uses the adsb.lol daily dumps below; the
+OpenSky Trino interface remains an alternative not yet implemented.
+
+## adsb.lol daily dumps
+
+`adsb::dump` ingests the adsb.lol `globe_history_{year}` releases: one GitHub
+release per UTC day and feed (`prod`, `mlatonly`, `staging`), tagged
+`v{YYYY.MM.DD}-planes-readsb-{feed}-{N}`, with large releases split into
+`.tar.aa`, `.tar.ab`, … parts that concatenate into one tar stream. The tar
+holds `trace_full_*.json` members — one per aircraft — each gzipped by magic
+(`1f 8b`) despite the `.json` name.
+
+Each member is a readsb trace:
+
+```text
+{"icao": ..., "r": ..., "t": <type>, "timestamp": <unix s>, "trace": [row, ...]}
+```
+
+A row is `[dt, lat, lon, alt_baro|"ground"|null, gs_kt, track, flags,
+vrate_fpm, details|null, source, alt_geom_ft, geom_rate_fpm, ias, roll]` with
+`dt` in seconds after `timestamp`; fields from index 9 exist only in files
+from 2022 on. Row flags: 1 stale, 2 new leg, 4 geometric vertical rate,
+8 geometric altitude. Units convert to the track model (feet→m, knots→m/s,
+ft/min→m/s); `geometric_altitude_m` is ellipsoidal so `alt_geom_ft` needs no
+geoid correction.
+
+`ingest_reader`/`ingest_path` keep rows inside the query window and region —
+plus segment-bracket anchors and two neighbours each side so interpolation
+stays anchored — and return `FlightTrack`s plus `DumpStats`. `AdsbLolArchive`
+implements `TrackSource` over a local tar, directory of `trace_full_*` files
+or single member for offline replay; release discovery and download are
+fetch-layer work. The parser is ported from `franken_doppler_finder`
+`fdop-data/src/ingest.rs` (see `docs/third_party.md`), single-threaded, and
+keeps every aircraft — engine classification happens in `adsb::legs` at read
+time. readsb reports no staleness gap, so `latency_s` stays `None`; the
+stale/new-leg/source bits land in `TrackSample::flags`
+(`FLAG_STALE`, `FLAG_NEW_LEG`, `FLAG_NEW_LEG_AFTER`, `FLAG_MLAT`,
+`FLAG_TISB`). Baro-only rows reuse the barometric altitude for
+`geometric_altitude_m` under `FLAG_GEOM_FROM_BARO`.
 
 ## Request bounds
 
