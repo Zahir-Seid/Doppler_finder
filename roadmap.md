@@ -692,10 +692,13 @@ needed by G1/G2.
   `PublicCell` plus mass, `Research` adds observer, calibrated ellipse and
   implied start — so the public variant has no field that could leak exact
   coordinates. Tests: `crates/pipeline/tests/pip_03.rs`.
-- **PIP-04** `[ ]` Public coarsening (FR-OUT-03, v1).
-  One function builds public geometry at the configured cell size; no other code
-  constructs a public location. The public result type has no exact-coordinate
-  field.
+- **PIP-04** `[x]` Public coarsening (FR-OUT-03, v1).
+  `pipeline::public_cell` is the only constructor of public geometry: it
+  snaps the observer onto an ENU cell grid anchored at the observer's
+  integer-degree position (anchoring at the observer itself would leak full
+  precision), returning a `PublicCell` centre + size. `Location::Public`
+  (PIP-03) has no exact-coordinate field. Tests:
+  `crates/pipeline/tests/pip_04.rs`.
 - **PIP-05** `[ ]` Report figures (FR-OUT-02, v1).
   Spectrogram with fitted curves, matched flights, uncertainty and per-channel
   evidence. Use `plotters`/SVG; keep figures out of the compute hot path.

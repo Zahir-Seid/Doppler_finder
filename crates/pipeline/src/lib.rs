@@ -5,6 +5,7 @@
 //! boundaries. Stage implementations arrive with their crate-level tasks.
 
 pub mod budget;
+pub mod coarsen;
 pub mod error;
 pub mod manifest;
 pub mod progress;
@@ -13,6 +14,7 @@ pub mod run;
 pub mod stages;
 
 pub use budget::{PipelineConfig, RunMode};
+pub use coarsen::public_cell;
 pub use error::PipelineError;
 pub use manifest::{
     AtmosphereSource, DataSource, MANIFEST_VERSION, ManifestInputs, ManifestJson, ModelVersions,
