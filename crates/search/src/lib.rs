@@ -10,6 +10,7 @@ pub mod error;
 pub mod estimate;
 pub mod join;
 pub mod likelihood;
+pub mod posterior;
 pub mod predict;
 pub mod silence;
 pub mod verdict;
@@ -23,6 +24,10 @@ pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
 pub use join::{JoinCandidate, JoinConfig, PROVISIONAL_CLOCK_BIN_S, join_pairs};
 pub use likelihood::{ErrorBudget, event_log_likelihood};
+pub use posterior::{
+    CandidateCluster, DEFAULT_TOP_K, LandPrior, MAX_ASSIGNMENTS, PROVISIONAL_CLUSTER_RADIUS_M,
+    PosteriorEnv, ScoredCandidate, UniformPrior, score_candidates, top_clusters,
+};
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use silence::{
     DetectionModel, PROVISIONAL_HALF_RANGE_M, PROVISIONAL_UNKNOWN_PROP_PRIOR, PROVISIONAL_WIDTH_M,

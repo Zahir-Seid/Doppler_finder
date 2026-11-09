@@ -137,8 +137,7 @@ pub fn join_pairs(
         let mut best_per_event: HashMap<usize, &Hypothesis> = HashMap::new();
         for (_, hypothesis) in &members {
             match best_per_event.get(&hypothesis.event_index) {
-                Some(current)
-                    if current.maha_distance <= hypothesis.maha_distance => {}
+                Some(current) if current.maha_distance <= hypothesis.maha_distance => {}
                 _ => {
                     best_per_event.insert(hypothesis.event_index, hypothesis);
                 }

@@ -587,9 +587,15 @@ terrain and time.
   event, so duplicates never double-count). Clock bin width is
   `PROVISIONAL_CLOCK_BIN_S` pending measured fit sigmas. Tests:
   `crates/search/tests/src_06.rs`.
-- **SRC-07** `[ ]` Posterior scoring (FR-SL-01).
-  Full log-posterior over survivors; top-K clusters; log-sum-exp over
-  assignments; land prior uniform over land in the region.
+- **SRC-07** `[x]` Posterior scoring (FR-SL-01).
+  `search::posterior::score_candidates` evaluates the full SDD 6.2
+  log-posterior per join candidate — `(v, d)` likelihoods, clock terms,
+  optional known-time and per-candidate silence terms, and a `LandPrior`
+  trait (uniform until a land mask exists) — summing over event→track
+  assignments with log-sum-exp under a `MAX_ASSIGNMENTS` cap that flags
+  `truncated` rather than cutting silently. `top_clusters` merges nearby
+  candidates and normalizes posterior masses. Tests:
+  `crates/search/tests/src_07.rs`.
 - **SRC-08** `[ ]` Continuous refinement (FR-SL-03).
   LM on the negative log posterior over `(lat, lon, s)` with land-mask and bounds
   constraints; covariance from the inverse Hessian; report separate clusters.
