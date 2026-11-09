@@ -699,9 +699,14 @@ needed by G1/G2.
   precision), returning a `PublicCell` centre + size. `Location::Public`
   (PIP-03) has no exact-coordinate field. Tests:
   `crates/pipeline/tests/pip_04.rs`.
-- **PIP-05** `[ ]` Report figures (FR-OUT-02, v1).
-  Spectrogram with fitted curves, matched flights, uncertainty and per-channel
-  evidence. Use `plotters`/SVG; keep figures out of the compute hot path.
+- **PIP-05** `[x]` Report figures (FR-OUT-02, v1).
+  `pipeline::figures::render_figures` writes `spectrogram.svg` (block-averaged
+  whitened z-map, capped at 160x90 cells so long recordings stay bounded, with
+  each retained event's fitted fundamental overlaid), `evidence.svg` (verdict,
+  reason codes, per-event quality) and `uncertainty.svg` (calibrated 95%
+  ellipse with semi-major label) when a refined solution exists. Figures are
+  off the compute path: the caller invokes them on the retained
+  `AnalyzeOutcome`. Tests: `crates/pipeline/tests/pip_05.rs`.
 - **CLI-01** `[ ]` `sim` command (FR-SIM-01, FR-SIM-03, FR-SIM-04).
   Load a scenario JSON and seed; write WAV, truth JSON, degraded feed and CRLB
   report. Expose noise/absorption settings. This is the first end-to-end use of

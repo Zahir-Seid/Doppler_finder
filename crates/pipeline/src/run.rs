@@ -145,6 +145,9 @@ pub struct LocalizeOutcome {
     pub ranked: Vec<RankedAlternative>,
     /// LM-refined winner, when a cluster existed to refine.
     pub refined: Option<RefinedSolution>,
+    /// Calibrated 95% `(east, north)` ellipse from the refined covariance;
+    /// `None` when nothing refined.
+    pub ellipse_95: Option<[[f64; 2]; 2]>,
     /// SDD 6.5 verdict.
     pub decision: VerdictDecision,
     /// Indices into the caller's track slice for the aircraft in the winning
@@ -165,6 +168,9 @@ pub struct AnalyzeOutcome {
     pub localize: Option<LocalizeOutcome>,
     /// Per-stage wall times for the run manifest.
     pub stage_timings: Vec<StageTiming>,
+    /// Whitened spectrogram-time map the detect stage searched; kept for the
+    /// render stage's figures.
+    pub zmap: dsp::ZMap,
     /// Any input cap or work budget truncated the run.
     pub truncated: bool,
 }
@@ -282,6 +288,7 @@ pub fn analyze(
         events: fitted,
         localize,
         stage_timings: timings,
+        zmap: map,
         truncated,
     })
 }
@@ -348,12 +355,13 @@ fn localize(events: &[EventFit], spec: &AnalyzeSpec<'_>) -> Result<LocalizeOutco
         [first] => (first.posterior_mass, 0.0),
         [first, second, ..] => (first.posterior_mass, second.posterior_mass),
     };
+    // The calibrated ellipse feeds both the verdict and the figures.
+    let ellipse_95 = refined
+        .as_ref()
+        .map(|solution| l.calibration.ellipse_covariance(&solution.covariance));
     // Without a refined solution the ellipse is unbounded; `f64::MAX` stays
     // finite for `decide` and always exceeds the semi-major cap.
-    let ellipse_m = refined.as_ref().map_or(f64::MAX, |solution| {
-        let scaled = l.calibration.ellipse_covariance(&solution.covariance);
-        ellipse_semi_major_95(&scaled)
-    });
+    let ellipse_m = ellipse_95.map_or(f64::MAX, |ellipse| ellipse_semi_major_95(&ellipse));
     let truncated = coarse.truncated || join.truncated || scored.truncated;
     let decision = decide(
         &VerdictInput {
@@ -376,6 +384,7 @@ fn localize(events: &[EventFit], spec: &AnalyzeSpec<'_>) -> Result<LocalizeOutco
         clusters,
         ranked,
         refined,
+        ellipse_95,
         decision,
         matched_track_indices,
         truncated,

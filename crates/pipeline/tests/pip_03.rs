@@ -10,6 +10,17 @@ use pipeline::run::LocalizeOutcome;
 use pipeline::{Location, PublicCell, ResultPayload};
 use search::{ReasonCode, Verdict, VerdictDecision};
 
+fn tiny_zmap() -> dsp::ZMap {
+    let config = dsp::StftConfig::survey(4_000.0).expect("stft");
+    let frames = 3;
+    dsp::ZMap::from_parts(
+        config,
+        (0..frames).map(|i| i as f64 * 0.25).collect(),
+        vec![0.0; frames * config.bin_count()],
+    )
+    .expect("zmap")
+}
+
 fn event_fit() -> EventFit {
     EventFit {
         event_id: EventId::new_v7(),
@@ -46,6 +57,7 @@ fn outcome_with_localize() -> pipeline::AnalyzeOutcome {
             clusters: Vec::new(),
             ranked: Vec::new(),
             refined: None,
+            ellipse_95: None,
             decision: VerdictDecision {
                 verdict: Verdict::Locatable,
                 reason_codes: vec![ReasonCode::TruncatedSearch],
@@ -54,6 +66,7 @@ fn outcome_with_localize() -> pipeline::AnalyzeOutcome {
             truncated: true,
         }),
         stage_timings: Vec::new(),
+        zmap: tiny_zmap(),
         truncated: true,
     }
 }
@@ -191,6 +204,7 @@ fn pip_03_no_localize_is_not_locatable_with_reason() {
         events: Vec::new(),
         localize: None,
         stage_timings: Vec::new(),
+        zmap: tiny_zmap(),
         truncated: false,
     };
     let payload = ResultPayload::build(&outcome, &[], "hash", Location::None, Vec::new());

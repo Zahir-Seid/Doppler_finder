@@ -32,6 +32,7 @@ clap = { version = "4", features = ["derive"] }
 hound = "3"
 nalgebra = "0.35"
 parquet = { version = "60", default-features = false, features = ["arrow", "snap"] }
+plotters = { version = "0.3", features = ["svg_backend", "ttf"] }
 rand = "0.9"
 rand_chacha = "0.9"
 realfft = "3.5"

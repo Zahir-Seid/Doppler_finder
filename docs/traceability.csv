@@ -17,9 +17,9 @@ FR-SL-02,M,v0,6.5,search,T-SL-02,done,passing
 FR-SL-03,M,v0,6.4,search,T-SL-03,done,passing
 FR-SL-04,M,v0,6.4;13,search,T-SL-04,partial,partial
 FR-SL-05,S,v0,6.4,search,T-SL-05,done,passing
-FR-OUT-01,M,v1,6.5;10.4,pipeline;search,T-OUT-01,not_started,planned
-FR-OUT-02,M,v1,10.4,pipeline,T-OUT-02,not_started,planned
-FR-OUT-03,M,v1,6.6,pipeline,T-OUT-03,not_started,planned
+FR-OUT-01,M,v1,6.5;10.4,pipeline;search,T-OUT-01,done,passing
+FR-OUT-02,M,v1,10.4,pipeline,T-OUT-02,done,passing
+FR-OUT-03,M,v1,6.6,pipeline,T-OUT-03,done,passing
 FR-OUT-04,M,v0,9.4,pipeline;cli,T-OUT-04,partial,partial
 FR-SIM-01,M,v0,7,sim,T-SIM-01,done,passing
 FR-SIM-02,M,v0,7,sim,T-SIM-02,partial,partial

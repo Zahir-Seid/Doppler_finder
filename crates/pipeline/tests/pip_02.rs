@@ -9,6 +9,17 @@ use pipeline::manifest::{ManifestInputs, build_manifest, parameter_hash};
 use pipeline::{AtmosphereSource, DataSource, ModelVersions};
 use serde::Serialize;
 
+fn tiny_zmap() -> dsp::ZMap {
+    let config = dsp::StftConfig::survey(4_000.0).expect("stft");
+    let frames = 3;
+    dsp::ZMap::from_parts(
+        config,
+        (0..frames).map(|i| i as f64 * 0.25).collect(),
+        vec![0.0; frames * config.bin_count()],
+    )
+    .expect("zmap")
+}
+
 fn inputs(job_id: JobId) -> ManifestInputs {
     ManifestInputs {
         job_id,
@@ -64,6 +75,7 @@ fn pip_02_manifest_carries_every_sdd_9_4_field() {
             stage: "ingest".to_owned(),
             elapsed_s: 0.01,
         }],
+        zmap: tiny_zmap(),
         truncated: true,
     };
     let manifest = build_manifest(inputs.clone(), &outcome);
@@ -94,6 +106,7 @@ fn pip_02_manifest_hash_changes_with_inputs() {
         events: Vec::new(),
         localize: None,
         stage_timings: Vec::new(),
+        zmap: tiny_zmap(),
         truncated: false,
     };
     let a = build_manifest(inputs(JobId::new_v7()), &outcome)

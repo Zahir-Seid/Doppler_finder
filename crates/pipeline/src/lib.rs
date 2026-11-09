@@ -7,6 +7,7 @@
 pub mod budget;
 pub mod coarsen;
 pub mod error;
+pub mod figures;
 pub mod manifest;
 pub mod progress;
 pub mod result;
@@ -16,6 +17,7 @@ pub mod stages;
 pub use budget::{PipelineConfig, RunMode};
 pub use coarsen::public_cell;
 pub use error::PipelineError;
+pub use figures::render_figures;
 pub use manifest::{
     AtmosphereSource, DataSource, MANIFEST_VERSION, ManifestInputs, ManifestJson, ModelVersions,
     RunManifest, StageTiming, build_manifest, parameter_hash, sha256_hex,
