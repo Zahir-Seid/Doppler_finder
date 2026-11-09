@@ -8,6 +8,7 @@ pub mod clock;
 pub mod coarse;
 pub mod error;
 pub mod estimate;
+pub mod join;
 pub mod likelihood;
 pub mod predict;
 pub mod silence;
@@ -20,6 +21,7 @@ pub use clock::{
 pub use coarse::{CoarseEnv, DEFAULT_GATE_SIGMA, GridSpec, Hypothesis, coarse_hypotheses};
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
+pub use join::{JoinCandidate, JoinConfig, PROVISIONAL_CLOCK_BIN_S, join_pairs};
 pub use likelihood::{ErrorBudget, event_log_likelihood};
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use silence::{

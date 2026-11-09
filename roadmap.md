@@ -580,8 +580,13 @@ terrain and time.
   recording start and clock sigma for the pair join. Per-event covariance
   failures surface once rather than silently zeroing hypotheses. Tests:
   `crates/search/tests/src_05.rs`.
-- **SRC-06** `[ ]` Pair join (FR-SL-01).
-  Spatial hash of `(cell, clock bin)` so only cells shared by two events survive.
+- **SRC-06** `[x]` Pair join (FR-SL-01).
+  `search::join::join_pairs` hashes hypotheses on `(observer cell, clock
+  bin)`; groups covering ≥2 distinct events survive as `JoinCandidate`s
+  with a precision-weighted implied recording start (best hypothesis per
+  event, so duplicates never double-count). Clock bin width is
+  `PROVISIONAL_CLOCK_BIN_S` pending measured fit sigmas. Tests:
+  `crates/search/tests/src_06.rs`.
 - **SRC-07** `[ ]` Posterior scoring (FR-SL-01).
   Full log-posterior over survivors; top-K clusters; log-sum-exp over
   assignments; land prior uniform over land in the region.
