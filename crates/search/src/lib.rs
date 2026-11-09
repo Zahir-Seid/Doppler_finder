@@ -6,8 +6,10 @@
 
 pub mod error;
 pub mod estimate;
+pub mod predict;
 pub mod verdict;
 
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
+pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use verdict::{Verdict, VerdictThresholds};

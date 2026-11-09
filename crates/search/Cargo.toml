@@ -7,7 +7,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+adsb = { workspace = true }
 core-types = { workspace = true }
+geodesy = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 

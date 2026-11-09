@@ -1900,7 +1900,9 @@ dependencies = [
 name = "search"
 version = "0.0.0"
 dependencies = [
+ "adsb",
  "core-types",
+ "geodesy",
  "serde",
  "thiserror",
 ]

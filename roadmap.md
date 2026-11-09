@@ -548,10 +548,12 @@ fallback; licences are recorded in `docs/third_party.md`.
 Read SDD section 6. This is the first crate allowed to combine events, tracks,
 terrain and time.
 
-- **SRC-01** `[ ]` Prediction (FR-SL-01).
-  For hypothesis `(observer x, flight j)`, find the closest approach in 3-D
-  slant distance with the light-time solver; observer height = terrain + ear
-  height; aircraft height uses geometric altitude via the geoid.
+- **SRC-01** `[x]` Prediction (FR-SL-01).
+  `search::predict` composes `geodesy::observer_height_m` (terrain + ear
+  height + geoid undulation) with `adsb::closest_approach` for the 3-D
+  slant minimum and light-time heard UTC; `ellipsoidal_track` applies the
+  geoid correction once per flight to baro-derived (`FLAG_GEOM_FROM_BARO`)
+  heights before the observer grid loop. Tests: `crates/search/tests/src_01.rs`.
 - **SRC-02** `[ ]` Event likelihood (FR-SL-01).
   Gaussian residual on `(v, d)` with `Σ_vd + Σ_adsb + Σ_model`; `f0` is a
   nuisance parameter; compute the log-likelihood.
