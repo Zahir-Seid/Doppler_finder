@@ -160,28 +160,8 @@ pub fn score_candidates(
         // One option list per distinct event: each entry is a hypothesis
         // index. Multiple hypotheses of the same event are alternative
         // track assignments at this cell.
-        let mut options_per_event: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-        for &hyp_index in &candidate.hypothesis_indices {
-            let Some(hypothesis) = hypotheses.get(hyp_index) else {
-                return Err(SearchError::NotFinite);
-            };
-            options_per_event
-                .entry(hypothesis.event_index)
-                .or_default()
-                .push(hyp_index);
-        }
-        // Deterministic order: lowest Mahalanobis first so truncation keeps
-        // the best assignments.
-        for options in options_per_event.values_mut() {
-            options.sort_by(|&a, &b| {
-                let maha = |index: usize| {
-                    hypotheses
-                        .get(index)
-                        .map_or(f64::INFINITY, |h| h.maha_distance)
-                };
-                maha(a).total_cmp(&maha(b))
-            });
-        }
+        let option_lists = assignment_options(candidate, hypotheses)?;
+        let option_lists: Vec<Vec<usize>> = option_lists.into_values().collect();
 
         let s = candidate.implied_start_unix_s;
         let silence_term = env
@@ -195,7 +175,6 @@ pub fn score_candidates(
             None => 0.0,
         };
 
-        let option_lists: Vec<Vec<usize>> = options_per_event.into_values().collect();
         let (log_posterior, assignments_evaluated, truncated) = enumerate_assignments(
             &option_lists,
             hypotheses,
@@ -272,23 +251,13 @@ fn enumerate_rec(
     }
     let Some(options) = option_lists.get(level) else {
         // Leaf: score this assignment.
-        let mut log_l = 0.0;
-        for &hyp_index in current.iter() {
-            let Some(hypothesis) = hypotheses.get(hyp_index) else {
-                return Err(SearchError::NotFinite);
-            };
-            let Some(fit) = events.get(hypothesis.event_index) else {
-                return Err(SearchError::NotFinite);
-            };
-            log_l += event_log_likelihood(fit, &hypothesis.prediction, env.budget)?;
-            log_l += clock_log_likelihood(
-                fit,
-                &hypothesis.prediction,
-                s_unix_s,
-                env.adsb_timing_sigma_s,
-            )?;
-        }
-        out.push(log_l);
+        out.push(assignment_log_likelihood(
+            current.as_slice(),
+            hypotheses,
+            events,
+            s_unix_s,
+            env,
+        )?);
         return Ok(());
     };
     for &hyp_index in options {
@@ -310,6 +279,72 @@ fn enumerate_rec(
         }
     }
     Ok(())
+}
+
+/// Per-event hypothesis options inside one candidate, sorted by ascending
+/// Mahalanobis distance so truncation keeps the best assignments.
+///
+/// # Errors
+///
+/// Returns [`SearchError::NotFinite`] for an out-of-range hypothesis index.
+pub(crate) fn assignment_options(
+    candidate: &JoinCandidate,
+    hypotheses: &[Hypothesis],
+) -> Result<BTreeMap<usize, Vec<usize>>, SearchError> {
+    let mut options_per_event: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for &hyp_index in &candidate.hypothesis_indices {
+        let Some(hypothesis) = hypotheses.get(hyp_index) else {
+            return Err(SearchError::NotFinite);
+        };
+        options_per_event
+            .entry(hypothesis.event_index)
+            .or_default()
+            .push(hyp_index);
+    }
+    for options in options_per_event.values_mut() {
+        options.sort_by(|&a, &b| {
+            let maha = |index: usize| {
+                hypotheses
+                    .get(index)
+                    .map_or(f64::INFINITY, |h| h.maha_distance)
+            };
+            maha(a).total_cmp(&maha(b))
+        });
+    }
+    Ok(options_per_event)
+}
+
+/// Joint `(v, d)` + clock log-likelihood of one assignment: one hypothesis
+/// index per covered event, scored at recording start `s_unix_s`.
+///
+/// # Errors
+///
+/// Propagates likelihood and clock errors; returns
+/// [`SearchError::NotFinite`] for out-of-range indices.
+pub(crate) fn assignment_log_likelihood(
+    hyp_indices: &[usize],
+    hypotheses: &[Hypothesis],
+    events: &[EventFit],
+    s_unix_s: f64,
+    env: &PosteriorEnv<'_>,
+) -> Result<f64, SearchError> {
+    let mut log_l = 0.0;
+    for &hyp_index in hyp_indices {
+        let Some(hypothesis) = hypotheses.get(hyp_index) else {
+            return Err(SearchError::NotFinite);
+        };
+        let Some(fit) = events.get(hypothesis.event_index) else {
+            return Err(SearchError::NotFinite);
+        };
+        log_l += event_log_likelihood(fit, &hypothesis.prediction, env.budget)?;
+        log_l += clock_log_likelihood(
+            fit,
+            &hypothesis.prediction,
+            s_unix_s,
+            env.adsb_timing_sigma_s,
+        )?;
+    }
+    Ok(log_l)
 }
 
 /// Cluster scored candidates by observer proximity and normalize masses.

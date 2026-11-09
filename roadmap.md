@@ -596,9 +596,21 @@ terrain and time.
   `truncated` rather than cutting silently. `top_clusters` merges nearby
   candidates and normalizes posterior masses. Tests:
   `crates/search/tests/src_07.rs`.
-- **SRC-08** `[ ]` Continuous refinement (FR-SL-03).
-  LM on the negative log posterior over `(lat, lon, s)` with land-mask and bounds
-  constraints; covariance from the inverse Hessian; report separate clusters.
+- **SRC-08** `[x]` Continuous refinement (FR-SL-03).
+  `search::refine::refine` runs Levenberg–Marquardt on the negative
+  log-posterior over `(east, north, s)` in a local ENU frame, using
+  Cholesky-whitened `(v, d)` residuals plus clock/known-time residuals from
+  the candidate's best assignment (`best_assignment`, sharing
+  `assignment_options`/`assignment_log_likelihood` with `score_candidates`).
+  `RefineBounds` and a `-inf`-returning `LandPrior` act as constraints —
+  rejected trial steps never move the iterate. Covariance comes from the
+  inverse Gauss–Newton Hessian (`JᵀJ`) at the optimum; `log_posterior`
+  keeps the `score_candidates` normalization (constants accumulated, minus
+  the assignment sum collapsed to the best assignment). Tests:
+  `crates/search/tests/src_08.rs` — a three-track known-answer scenario
+  recovers the true observer and recording start; the test also documents
+  that two `(v, d)` curves alone admit a second legitimate intersection,
+  which is why real candidates carry several events.
 - **SRC-09** `[ ]` Calibration factor (FR-SL-04, NFR-01).
   Fit `κ` on simulation and keep validation clips held out; store `κ` and model
   version with every result.

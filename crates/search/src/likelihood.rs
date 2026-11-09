@@ -92,6 +92,7 @@ pub fn event_log_likelihood(
 pub(crate) struct VdGaussian {
     inverse: [[f64; 2]; 2],
     residual: [f64; 2],
+    covariance: [[f64; 2]; 2],
     log_determinant: f64,
 }
 
@@ -99,6 +100,33 @@ impl VdGaussian {
     /// Squared Mahalanobis distance `rᵀΣ⁻¹r` of the `(v, d)` residual.
     pub(crate) fn mahalanobis_squared(&self) -> f64 {
         quadratic_form(self.inverse, self.residual)
+    }
+
+    /// `ln det Σ` of the total `(v, d)` covariance — constant for a given
+    /// `(fit, budget)` pair.
+    pub(crate) fn log_determinant(&self) -> f64 {
+        self.log_determinant
+    }
+
+    /// Whitened residual `L⁻¹r` where `Σ = LLᵀ`, so its squared norm equals
+    /// [`Self::mahalanobis_squared`]. Used by the SRC-08 least-squares
+    /// refinement, which needs residual components, not just the norm.
+    pub(crate) fn whitened_residuals(&self) -> [f64; 2] {
+        let [[a, b], [c, _d]] = self.covariance;
+        let l11 = a.max(0.0).sqrt();
+        if l11 <= 0.0 {
+            return [f64::INFINITY, f64::INFINITY];
+        }
+        let l21 = b / l11;
+        let l22 = (c - l21 * l21).max(0.0).sqrt();
+        let [r0, r1] = self.residual;
+        let w0 = r0 / l11;
+        let w1 = if l22 > 0.0 {
+            (r1 - l21 * w0) / l22
+        } else {
+            0.0
+        };
+        [w0, w1]
     }
 }
 
@@ -133,6 +161,7 @@ pub(crate) fn vd_gaussian(
     Ok(VdGaussian {
         inverse,
         residual,
+        covariance: total,
         log_determinant: determinant.ln(),
     })
 }

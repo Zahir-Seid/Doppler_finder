@@ -12,6 +12,7 @@ pub mod join;
 pub mod likelihood;
 pub mod posterior;
 pub mod predict;
+pub mod refine;
 pub mod silence;
 pub mod verdict;
 
@@ -29,6 +30,7 @@ pub use posterior::{
     PosteriorEnv, ScoredCandidate, UniformPrior, score_candidates, top_clusters,
 };
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
+pub use refine::{RefineBounds, RefineEnv, RefinedSolution, best_assignment, refine};
 pub use silence::{
     DetectionModel, PROVISIONAL_HALF_RANGE_M, PROVISIONAL_UNKNOWN_PROP_PRIOR, PROVISIONAL_WIDTH_M,
     SilencePass, silence_log_likelihood,
