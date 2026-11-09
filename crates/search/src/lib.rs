@@ -5,6 +5,7 @@
 //! crate fixes the result types and the refusal rule.
 
 pub mod clock;
+pub mod coarse;
 pub mod error;
 pub mod estimate;
 pub mod likelihood;
@@ -16,6 +17,7 @@ pub use clock::{
     PROVISIONAL_ADSB_TIMING_SIGMA_S, clock_log_likelihood, clock_terms_log_likelihood,
     implied_recording_start, known_time_log_likelihood, recording_start_sigma,
 };
+pub use coarse::{CoarseEnv, DEFAULT_GATE_SIGMA, GridSpec, Hypothesis, coarse_hypotheses};
 pub use error::SearchError;
 pub use estimate::LocalizationEstimate;
 pub use likelihood::{ErrorBudget, event_log_likelihood};

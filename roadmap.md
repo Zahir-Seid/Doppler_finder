@@ -573,8 +573,13 @@ terrain and time.
   detection ROC); jets are excluded outright and `Unknown` classes are
   scaled by a provisional propeller prior. Tests:
   `crates/search/tests/src_04.rs`.
-- **SRC-05** `[ ]` Coarse hypotheses and gate (FR-SL-01).
-  Grid per event and flight; keep residuals inside a 4σ gate.
+- **SRC-05** `[x]` Coarse hypotheses and gate (FR-SL-01).
+  `search::coarse::coarse_hypotheses` grids observer cells per event and
+  flight, keeps `(v, d)` residuals inside the `DEFAULT_GATE_SIGMA` (4σ)
+  Mahalanobis gate, and emits `Hypothesis` records carrying the implied
+  recording start and clock sigma for the pair join. Per-event covariance
+  failures surface once rather than silently zeroing hypotheses. Tests:
+  `crates/search/tests/src_05.rs`.
 - **SRC-06** `[ ]` Pair join (FR-SL-01).
   Spatial hash of `(cell, clock bin)` so only cells shared by two events survive.
 - **SRC-07** `[ ]` Posterior scoring (FR-SL-01).

@@ -393,8 +393,8 @@ impl SrtmTile {
 /// Returns [`GeodesyError::InvalidEarHeight`] when the ear height is negative
 /// or not finite, and the sampling errors of `terrain` or `geoid`.
 pub fn observer_height_m(
-    terrain: &impl ElevationModel,
-    geoid: &impl GeoidModel,
+    terrain: &dyn ElevationModel,
+    geoid: &dyn GeoidModel,
     position: LatLon,
     ear_height_m: Metres,
 ) -> Result<Metres, GeodesyError> {

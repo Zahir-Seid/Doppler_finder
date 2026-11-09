@@ -60,8 +60,8 @@ pub struct Prediction {
 pub fn predict(
     observer: LatLon,
     track: &FlightTrack,
-    terrain: &impl ElevationModel,
-    geoid: &impl GeoidModel,
+    terrain: &dyn ElevationModel,
+    geoid: &dyn GeoidModel,
     ear_height_m: Metres,
     sound_speed_m_per_s: f64,
 ) -> Result<Option<Prediction>, SearchError> {
@@ -104,7 +104,7 @@ pub fn predict(
 /// flagged sample, or [`SearchError::Adsb`] when the track fails validation.
 pub fn ellipsoidal_track(
     track: &FlightTrack,
-    geoid: &impl GeoidModel,
+    geoid: &dyn GeoidModel,
 ) -> Result<FlightTrack, SearchError> {
     track
         .validate()

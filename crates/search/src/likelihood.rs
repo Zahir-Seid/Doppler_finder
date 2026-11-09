@@ -82,6 +82,36 @@ pub fn event_log_likelihood(
     prediction: &Prediction,
     budget: &ErrorBudget,
 ) -> Result<f64, SearchError> {
+    let gaussian = vd_gaussian(fit, prediction, budget)?;
+    let maha = gaussian.mahalanobis_squared();
+    // Full bivariate Gaussian: -0.5 (rᵀΣ⁻¹r + ln det Σ + 2 ln 2π).
+    Ok(-0.5 * (maha + gaussian.log_determinant + 2.0 * std::f64::consts::TAU.ln()))
+}
+
+/// The `(v, d)` Gaussian shared by the event likelihood and the SRC-05 gate.
+pub(crate) struct VdGaussian {
+    inverse: [[f64; 2]; 2],
+    residual: [f64; 2],
+    log_determinant: f64,
+}
+
+impl VdGaussian {
+    /// Squared Mahalanobis distance `rᵀΣ⁻¹r` of the `(v, d)` residual.
+    pub(crate) fn mahalanobis_squared(&self) -> f64 {
+        quadratic_form(self.inverse, self.residual)
+    }
+}
+
+/// Build the `(v, d)` Gaussian for one `(fit, prediction)` pair.
+///
+/// # Errors
+///
+/// Same as [`event_log_likelihood`].
+pub(crate) fn vd_gaussian(
+    fit: &EventFit,
+    prediction: &Prediction,
+    budget: &ErrorBudget,
+) -> Result<VdGaussian, SearchError> {
     if !fit.speed_m_per_s.is_finite()
         || !fit.closest_m.0.is_finite()
         || !prediction.speed_m_per_s.is_finite()
@@ -96,14 +126,35 @@ pub fn event_log_likelihood(
     if determinant <= 0.0 {
         return Err(SearchError::InvalidCovariance);
     }
-
     let residual = [
         fit.speed_m_per_s - prediction.speed_m_per_s,
         fit.closest_m.0 - prediction.slant_range_m,
     ];
-    let maha = quadratic_form(inverse, residual);
-    // Full bivariate Gaussian: -0.5 (rᵀΣ⁻¹r + ln det Σ + 2 ln 2π).
-    Ok(-0.5 * (maha + determinant.ln() + 2.0 * std::f64::consts::TAU.ln()))
+    Ok(VdGaussian {
+        inverse,
+        residual,
+        log_determinant: determinant.ln(),
+    })
+}
+
+/// Validate that `Σ_vd + Σ_adsb + Σ_model` is positive definite for `fit`,
+/// without needing a prediction. The determinant depends only on the
+/// covariance, so a failure here means every cell would fail identically —
+/// callers should check once per event rather than skip silently.
+///
+/// # Errors
+///
+/// Same covariance errors as [`event_log_likelihood`].
+pub(crate) fn check_fit_covariance(
+    fit: &EventFit,
+    budget: &ErrorBudget,
+) -> Result<(), SearchError> {
+    let sigma_vd = fit_covariance_subblock(fit)?;
+    let total = add(add(sigma_vd, budget.adsb)?, budget.model)?;
+    if determinant_2x2(total) <= 0.0 {
+        return Err(SearchError::InvalidCovariance);
+    }
+    Ok(())
 }
 
 /// `(v, d)` marginal of the fit covariance: parameter indices 1 and 2 of
