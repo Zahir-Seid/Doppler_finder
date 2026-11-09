@@ -84,7 +84,7 @@ pub struct ScoredCandidate {
 }
 
 /// A cluster of nearby candidates with its total posterior mass.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CandidateCluster {
     /// Indices into the scored-candidate slice, best first.
     pub member_indices: Vec<usize>,
@@ -469,4 +469,50 @@ pub fn top_clusters(
         });
     }
     Ok(out)
+}
+
+/// One ranked cluster alternative with its margin over the best rival
+/// (FR-SL-05).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RankedAlternative {
+    /// 0-based rank by descending log mass.
+    pub rank: usize,
+    /// The cluster itself.
+    pub cluster: CandidateCluster,
+    /// `log_mass` minus the best *other* cluster's `log_mass`, in nats.
+    /// Positive for the leader (its advantage over the runner-up),
+    /// negative for every rival (how far it trails the leader). `INFINITY`
+    /// when the cluster is the only one reported — an uncontested answer.
+    pub margin_nats: f64,
+}
+
+/// Rank `clusters` (as returned by [`top_clusters`], already sorted) and
+/// attach each cluster's margin over its best rival.
+///
+/// The margin uses unnormalized `log_mass`, so the shared normalization
+/// constant cancels: it is exactly the log-posterior-odds gap between the
+/// cluster and its strongest competitor.
+pub fn ranked_alternatives(clusters: &[CandidateCluster]) -> Vec<RankedAlternative> {
+    clusters
+        .iter()
+        .enumerate()
+        .map(|(rank, cluster)| {
+            let best_rival = clusters
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != rank)
+                .map(|(_, c)| c.log_mass)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let margin_nats = if best_rival == f64::NEG_INFINITY {
+                f64::INFINITY
+            } else {
+                cluster.log_mass - best_rival
+            };
+            RankedAlternative {
+                rank,
+                cluster: cluster.clone(),
+                margin_nats,
+            }
+        })
+        .collect()
 }

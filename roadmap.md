@@ -630,8 +630,14 @@ terrain and time.
   pairs stay ambiguous through `rival_min`. `VerdictThresholds` gained
   `rival_min` (0.05) and `max_semi_major_95_m` (1 km), all provisional.
   Tests: `crates/search/tests/src_10.rs`.
-- **SRC-11** `[ ]` Ranked alternatives (FR-SL-05).
-  Report ranked clusters with posterior mass and the margin over the best rival.
+- **SRC-11** `[x]` Ranked alternatives (FR-SL-05).
+  `search::posterior::ranked_alternatives` wraps each `CandidateCluster`
+  with its rank and `margin_nats` — `log_mass` minus the best *other*
+  cluster's `log_mass`, so the leader reports its advantage over the
+  runner-up and each rival reports how far it trails (positive/negative,
+  `INFINITY` when uncontested). Uses unnormalized log masses, so the
+  shared normalization constant cancels exactly. `CandidateCluster` gained
+  `PartialEq`. Tests: `crates/search/tests/src_11.rs`.
 - **SRC-12** `[ ]` Truncation handling (FR-SL-01).
   Every stage has a work budget; a truncated stage sets a flag and caps the
   verdict at `Ambiguous`.

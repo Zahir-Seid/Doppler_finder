@@ -29,7 +29,8 @@ pub use join::{JoinCandidate, JoinConfig, PROVISIONAL_CLOCK_BIN_S, join_pairs};
 pub use likelihood::{ErrorBudget, event_log_likelihood};
 pub use posterior::{
     CandidateCluster, DEFAULT_TOP_K, LandPrior, MAX_ASSIGNMENTS, PROVISIONAL_CLUSTER_RADIUS_M,
-    PosteriorEnv, ScoredCandidate, UniformPrior, score_candidates, top_clusters,
+    PosteriorEnv, RankedAlternative, ScoredCandidate, UniformPrior, ranked_alternatives,
+    score_candidates, top_clusters,
 };
 pub use predict::{NOMINAL_EAR_HEIGHT_M, Prediction, ellipsoidal_track, predict};
 pub use refine::{RefineBounds, RefineEnv, RefinedSolution, best_assignment, refine};
