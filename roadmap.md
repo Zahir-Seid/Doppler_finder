@@ -35,16 +35,16 @@ Read first, in this order:
 | Not started | 29 |
 | Deferred to v3 | 2 |
 
-For **v0** (24 tracked rows, including gates G1 and G2): **11 done, 4 partial,
+For **v0** (24 tracked rows, including gates G1 and G2): **12 done, 3 partial,
 0 in progress, 9 not started**. The done rows are `FR-SIM-01` (synthesis and
 truth), `FR-SIM-03` (Cramér–Rao bound), `FR-DM-01` (detection), `FR-DM-02`
 (track-then-fit estimation), `FR-DM-03` (emission-time model), `FR-DM-04`
 (harmonics combined coherently in the fit), `FR-DM-05` (direct estimation on
 faint events), `FR-DM-06` (quality score and gate), `FR-DA-01` (ADS-B ingest
 with sampling and latency in the manifest), `FR-DA-02` (geoid and
-DEM) and `FR-DA-04` (Parquet track store and offline replay). The v0 partial
-rows are
-`FR-DA-03`, `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
+DEM), `FR-DA-03` (measured atmosphere with flagged fallback) and
+`FR-DA-04` (Parquet track store and offline replay). The v0 partial
+rows are `FR-OUT-04`, `FR-SIM-02` and `FR-SIM-04`;
 `NFR-04` (v0–v1) is also partial, and `FR-IN-01` is v1.
 `FR-DM-01` closed with
 EVT-01, `FR-DM-02`/`FR-DM-04` with EVT-02, `FR-DM-05` with EVT-03,
@@ -61,7 +61,9 @@ sampler, SRTM `.hgt` loading and observer-height composition, closing
 sampling statistics. Reported position latency (`latency_s` →
 `DataSource::latency_*`) and full-day adsb.lol dump ingest (`adsb::dump`,
 ported from the reference implementation) closed `FR-DA-01` with ADSB-05;
-release discovery/download remains fetch-layer work. ADSB-02 adds the
+release discovery/download remains fetch-layer work. ACO-02 adds the
+Open-Meteo fetch adapter producing the normalized weather payload, closing
+`FR-DA-03`. ADSB-02 adds the
 partitioned Parquet track store and
 offline replay, closing `FR-DA-04`. ADSB-03 adds Hermite interpolation for
 the light-time solver, derived legs with engine class and closest-approach
@@ -78,7 +80,7 @@ closing T-4's flag half (the Addis measurement itself stays open).
 | `sim` | Partial | Synthesis, noise, absorption, WAV/truth export, degraded feed, CRLB, one golden scenario |
 | `dsp` | Partial | Kaiser/Hann windows, real STFT with zero-padding and sub-bin frequency, per-bin whitening, ridge ladder, FFmpeg decoder seam; band-limit, rational resampling and DC removal |
 | `events` | Partial | Detector over the z-map, joint track-then-fit estimator, direct power estimator and quality gate; `Event`, `EventFit`, `EventObservation`, `EventQuality` |
-| `adsb` | Partial | `TrackSource`, track model; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics; Hermite interpolation, derived legs, closest-approach prediction and region support flags |
+| `adsb` | Partial | `TrackSource`, track model; allow-listed OpenSky states client with bounded retries and size caps; sampling median and p90 statistics; partitioned Parquet track store with offline replay and per-source/day ingest statistics; Hermite interpolation, derived legs, closest-approach prediction and region support flags; adsb.lol dump ingest and the Open-Meteo weather fetch adapter |
 | `search` | Types only | `LocalizationEstimate`, `Verdict`, thresholds |
 | `pipeline` | Types only | Stages, manifest re-export, progress trait, budgets |
 | `store` | Types only | Job records/repository trait, limits, retention |
@@ -88,8 +90,8 @@ closing T-4's flag half (the Addis measurement itself stays open).
 | `cli` | Stub | Argument parsing; commands log “not implemented” |
 
 Quality gates on the current tree: `cargo fmt --check`, `clippy -D warnings` and
-the full test suite pass. 309 tests pass (37 acoustics, 29 core-types, 74 dsp
-unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 53 adsb, 52 sim unit,
+the full test suite pass. 317 tests pass (37 acoustics, 29 core-types, 74 dsp
+unit, 1 M2 exit, 29 events unit, 2 M3 exit, 30 geodesy, 61 adsb, 52 sim unit,
 2 sim golden). `cargo deny` and `cargo audit`
 run in CI. The toolchain stays on stable Rust 1.99.1 with no nightly features
 (NFR-05).
@@ -526,11 +528,15 @@ tests; use recorded fixtures.
   anchors, and `AdsbLolArchive` as a `TrackSource` over local archives.
   Release discovery/download stays fetch-layer work; readsb carries no
   staleness gap so dump samples report `latency_s: None` (Q-16).
-- **ACO-02** `[ ]` Live weather fetch adapter (FR-DA-03).
-  A transport-guarded fetch for a public weather archive (for example
-  Open-Meteo) producing the normalized payload `acoustics::weather` already
-  parses, with the host on the request allow-list. Recorded fixtures only;
-  the adapter marks its `DataSource` record like the ADS-B ingest does.
+- **ACO-02** `[x]` Live weather fetch adapter (FR-DA-03).
+  `adsb::weather` fetches Open-Meteo hourly surface conditions through the
+  same `HttpPolicy`/`HttpTransport` guard as the ADS-B clients and emits
+  the normalized payload `acoustics::weather::parse_weather` ingests —
+  the payload string is the seam, so `acoustics` stays I/O-free. Both the
+  ERA5 archive and historical-forecast endpoints are selectable; missing
+  hourly fields are skipped rather than fabricated. Tests replay a
+  recorded response: `crates/adsb/tests/aco_02.rs`. Source notes:
+  `docs/weather-source.md`.
 
 **Exit:** a fixture archive ingests, caches and replays offline; the manifest
 records source, version, hash and sampling statistics; terrain and geoid affect
@@ -766,12 +772,10 @@ Do not start these until the core is stable and G1–G6 are closed.
 
 The immediate unblocked queue, in order:
 
-1. **ACO-02** live weather fetch — closes `FR-DA-03`. **ADSB-05** is done:
-   `adsb::dump` ingests adsb.lol `globe_history` archives through
-   `TrackSource` into `TrackStore`; release discovery/download is fetch-layer
-   work for the runtime milestone.
-2. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
-   the tools are not installed on every machine.
+1. **X-02** local `cargo deny`/`cargo audit` parity: the configuration exists,
+   the tools are not installed on every machine (`cargo audit` is missing
+   locally; `cargo deny` runs but flags a pre-existing `tiny-keccak` CC0-1.0
+   licence rejection unrelated to recent work).
 
 Do not begin **SRC-01** until `EventFit` covariance and the detector output are
 stable. Do not begin M8 before G1/G2 pass.
